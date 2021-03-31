@@ -241,6 +241,7 @@ export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
   delegatedStake.shareAmount = delegatedStake.shareAmount.minus(event.params.shares)
   delegatedStake.lockedTokens = delegatedStake.lockedTokens.plus(event.params.tokens)
   delegatedStake.lockedUntil = event.params.until.toI32() // until always updates and overwrites the past lockedUntil time
+  delegatedStake.lastUndelegatedAt = event.block.timestamp.toI32()
 
   let realizedRewards = event.params.shares
     .toBigDecimal()
@@ -325,6 +326,7 @@ export function handleAllocationCreated(event: AllocationCreated): void {
   allocation.totalReturn = BigDecimal.fromString('0')
   allocation.annualizedReturn = BigDecimal.fromString('0')
   allocation.createdAt = event.block.timestamp.toI32()
+  allocation.closedAt = 0
   allocation.save()
 }
 
@@ -422,6 +424,7 @@ export function handleAllocationClosed(event: AllocationClosed): void {
   let allocation = Allocation.load(allocationID)
   allocation.poolClosedIn = event.params.epoch.toString()
   allocation.activeForIndexer = null
+  allocation.closedAt = event.block.timestamp.toI32()
   allocation.closedAtEpoch = event.params.epoch.toI32()
   allocation.closedAtBlockHash = event.block.hash
   allocation.closedAtBlockNumber = event.block.number.toI32()
