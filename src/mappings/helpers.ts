@@ -705,17 +705,21 @@ export function createDelegationPoolHistoryEntity(indexer: Indexer, event: ether
 
 export function createDelegatorRewardHistoryEntityFromIndexer(
   indexer: Indexer,
-  event: ethereum.Event
+  event: ethereum.Event,
 ): void {
   let graphNetwork = GraphNetwork.load('1')
-  let delegatorsListStrings = indexer.get("delegators").toBytesArray() as Address[]
+  let delegatorsListStrings = indexer.get('delegators').toBytesArray() as Address[]
   for (let i = 0; i < delegatorsListStrings.length; i++) {
     let delegatorStakeid = delegatorsListStrings[i].toHexString()
     let delegatedStake = DelegatedStake.load(delegatorStakeid)
     if (delegatedStake) {
-      let rewardHistoryEntity = new DelegatorRewardHistoryEntity(
-        indexer.id + delegatedStake.delegator + event.block.number.toString(),
-      )
+      let id = indexer.id + delegatedStake.delegator + event.block.number.toString()
+      let rewardHistoryEntity = DelegatorRewardHistoryEntity.load(id)
+      if (rewardHistoryEntity == null) {
+        rewardHistoryEntity = new DelegatorRewardHistoryEntity(
+          indexer.id + delegatedStake.delegator + event.block.number.toString(),
+        )
+      }
       rewardHistoryEntity.indexer = indexer.id
       rewardHistoryEntity.delegator = delegatedStake.delegator
 
