@@ -11,6 +11,7 @@ import {
   createOrLoadEpoch,
   updateAdvancedIndexerMetrics,
   createRewardsCutHistoryEntity,
+  createDelegationPoolHistoryEntity,
 } from './helpers'
 
 export function handleRewardsAssigned(event: RewardsAssigned): void {
@@ -41,6 +42,7 @@ export function handleRewardsAssigned(event: RewardsAssigned): void {
   indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
   indexer.save()
   createRewardsCutHistoryEntity(indexer as Indexer, event)
+  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // update allocation
   // no status updated, Claimed happens when RebateClaimed, and it is done
   let allocation = Allocation.load(allocationID)

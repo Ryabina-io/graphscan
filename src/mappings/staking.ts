@@ -41,6 +41,7 @@ import {
   createOrLoadGraphAccount,
   updateAdvancedIndexerMetrics,
   createRewardsCutHistoryEntity,
+  createDelegationPoolHistoryEntity,
 } from './helpers'
 
 export function handleDelegationParametersUpdated(event: DelegationParametersUpdated): void {
@@ -75,7 +76,8 @@ export function handleStakeDeposited(event: StakeDeposited): void {
   indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
-
+  createRewardsCutHistoryEntity(indexer, event)
+  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // Update graph network
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalTokensStaked = graphNetwork.totalTokensStaked.plus(event.params.tokens)
@@ -129,7 +131,8 @@ export function handleStakeWithdrawn(event: StakeWithdrawn): void {
   indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
-
+  createRewardsCutHistoryEntity(indexer as Indexer, event)
+  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // Update graph network
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalTokensStaked = graphNetwork.totalTokensStaked.minus(event.params.tokens)
@@ -163,6 +166,8 @@ export function handleStakeSlashed(event: StakeSlashed): void {
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
+  createRewardsCutHistoryEntity(indexer as Indexer, event)
+  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // Update graph network
   graphNetwork.totalTokensStaked = graphNetwork.totalTokensStaked.minus(event.params.tokens)
   graphNetwork.save()
@@ -185,6 +190,7 @@ export function handleStakeDelegated(event: StakeDelegated): void {
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
   createRewardsCutHistoryEntity(indexer, event)
+  createDelegationPoolHistoryEntity(indexer as Indexer, event)
 
   // update delegator
   let delegatorID = event.params.delegator.toHexString()
@@ -240,7 +246,7 @@ export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
   indexer.save()
 
   createRewardsCutHistoryEntity(indexer as Indexer, event)
-
+  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // update delegated stake
   let delegatorID = event.params.delegator.toHexString()
   let id = joinID([delegatorID, indexerID])
@@ -502,6 +508,7 @@ export function handleRebateClaimed(event: RebateClaimed): void {
   indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
   indexer.save()
   createRewardsCutHistoryEntity(indexer as Indexer, event)
+  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // update allocation
   let allocation = Allocation.load(allocationID)
   allocation.queryFeeRebates = event.params.tokens

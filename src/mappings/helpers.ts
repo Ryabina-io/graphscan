@@ -15,6 +15,7 @@ import {
   Delegator,
   DelegatedStake,
   RewardCutHistoryEntity,
+  DelegationPoolHistoryEntity,
 } from '../types/schema'
 import { ENS } from '../types/GNS/ENS'
 import { Controller } from '../types/Controller/Controller'
@@ -660,7 +661,27 @@ export function updateDeploymentSignaledTokens(subgraph: Subgraph): void {
 }
 
 export function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
-  let cutHistory = new RewardCutHistoryEntity(indexer.id + event.block.number.toString() + event.logIndex.toString())
+  let id = indexer.id + event.block.number.toString()
+  let poolHistory = DelegationPoolHistoryEntity.load(id)
+  if (poolHistory == null) {
+    poolHistory = new DelegationPoolHistoryEntity(id)
+  }
+  let graphNetwork = GraphNetwork.load('1')
+  poolHistory.indexer = indexer.id
+  poolHistory.stakedTokens = indexer.stakedTokens
+  poolHistory.delegatedTokens = indexer.delegatedTokens
+  poolHistory.blockNumber = event.block.number.toI32()
+  poolHistory.timestamp = event.block.timestamp.toI32()
+  poolHistory.epoch = graphNetwork.currentEpoch
+  poolHistory.save()
+}
+
+export function createDelegationPoolHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
+  let id = indexer.id + event.block.number.toString()
+  let cutHistory = RewardCutHistoryEntity.load(id)
+  if (cutHistory == null) {
+    cutHistory = new RewardCutHistoryEntity(id)
+  }
   let graphNetwork = GraphNetwork.load('1')
   let MILLION = BigInt.fromI32(1000000)
   cutHistory.indexer = indexer.id
