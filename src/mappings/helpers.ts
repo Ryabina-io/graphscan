@@ -14,12 +14,15 @@ import {
   NameSignal,
   Delegator,
   DelegatedStake,
+  RewardCutHistoryEntity,
 } from '../types/schema'
 import { ENS } from '../types/GNS/ENS'
 import { Controller } from '../types/Controller/Controller'
 
 import { addresses } from '../../config/addresses'
-
+import {
+  ethereum,
+} from "@graphprotocol/graph-ts";
 export function createOrLoadSubgraph(
   subgraphID: string,
   owner: Address,
@@ -654,4 +657,32 @@ export function updateDeploymentSignaledTokens(subgraph: Subgraph): void {
   let subgraphDeployment = SubgraphDeployment.load(subgraphVersion.subgraphDeployment)
   subgraphDeployment.signaledReal = subgraph.signalledTokens.minus(subgraph.unsignalledTokens)
   subgraphDeployment.save()
+}
+
+export function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
+  let cutHistory = new RewardCutHistoryEntity(indexer.id + event.block.number.toString() + event.logIndex.toString())
+  let graphNetwork = GraphNetwork.load('1')
+  let MILLION = BigInt.fromI32(1000000)
+  cutHistory.indexer = indexer.id
+  cutHistory.indexingRewardCut = indexer.indexingRewardCut
+  cutHistory.queryFeeCut = indexer.queryFeeCut
+
+  cutHistory.queryFeeEffectiveCut = indexer.stakedTokens.plus(
+    indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.queryFeeCut)).div(MILLION)
+  )
+  .times(MILLION)
+  .div(
+    indexer.stakedTokens.plus(indexer.delegatedTokens)
+  ).toI32()
+  cutHistory.indexingRewardEffectiveCut = indexer.stakedTokens.plus(
+    indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.indexingRewardCut)).div(MILLION)
+  )
+  .times(MILLION)
+  .div(
+    indexer.stakedTokens.plus(indexer.delegatedTokens)
+  ).toI32()
+  cutHistory.blockNumber = event.block.number.toI32()
+  cutHistory.timestamp = event.block.timestamp.toI32()
+  cutHistory.epoch = graphNetwork.currentEpoch
+  cutHistory.save()
 }

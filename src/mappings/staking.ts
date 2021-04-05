@@ -27,6 +27,7 @@ import {
   GraphAccount,
   Delegator,
   DelegatedStake,
+  RewardCutHistoryEntity
 } from '../types/schema'
 
 import {
@@ -39,6 +40,7 @@ import {
   createOrLoadDelegatedStake,
   createOrLoadGraphAccount,
   updateAdvancedIndexerMetrics,
+  createRewardsCutHistoryEntity,
 } from './helpers'
 
 export function handleDelegationParametersUpdated(event: DelegationParametersUpdated): void {
@@ -53,8 +55,10 @@ export function handleDelegationParametersUpdated(event: DelegationParametersUpd
     indexer.lastDelegationParameterUpdate = event.block.number.toI32()
     indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
     indexer.save()
+    createRewardsCutHistoryEntity(indexer, event)
   }
 }
+
 
 /**
  * @dev handleStakeDeposited
@@ -180,6 +184,7 @@ export function handleStakeDelegated(event: StakeDelegated): void {
   indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
+  createRewardsCutHistoryEntity(indexer, event)
 
   // update delegator
   let delegatorID = event.params.delegator.toHexString()
@@ -233,6 +238,8 @@ export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
   indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
+
+  createRewardsCutHistoryEntity(indexer as Indexer, event)
 
   // update delegated stake
   let delegatorID = event.params.delegator.toHexString()
@@ -494,6 +501,7 @@ export function handleRebateClaimed(event: RebateClaimed): void {
   }
   indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
   indexer.save()
+  createRewardsCutHistoryEntity(indexer as Indexer, event)
   // update allocation
   let allocation = Allocation.load(allocationID)
   allocation.queryFeeRebates = event.params.tokens
