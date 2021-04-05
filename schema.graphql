@@ -887,7 +887,21 @@ type DelegationPoolHistoryEntity @entity {
   timestamp: Int!
   epoch: Int!
 }
+"""
+Rewardы history entity
+"""
+type DelegatorRewardHistoryEntity @entity {
+  "Concatenation of indexer address delegator address and blocknumber"
+  id: ID!
+  indexer: GraphAccount!
+  delegator: GraphAccount!
 
+  reward: BigDecimal!
+
+  blockNumber: Int!
+  timestamp: Int!
+  epoch: Int!
+}
 enum DisputeType {
   SingleQuery
   Conflicting

@@ -12,6 +12,7 @@ import {
   updateAdvancedIndexerMetrics,
   createRewardsCutHistoryEntity,
   createDelegationPoolHistoryEntity,
+  createDelegatorRewardHistoryEntityFromIndexer
 } from './helpers'
 
 export function handleRewardsAssigned(event: RewardsAssigned): void {
@@ -87,6 +88,7 @@ export function handleRewardsAssigned(event: RewardsAssigned): void {
     delegatorIndexingRewards,
   )
   graphNetwork.save()
+  createDelegatorRewardHistoryEntityFromIndexer(indexer as Indexer, event)
 }
 
 /**

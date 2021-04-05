@@ -27,7 +27,6 @@ import {
   GraphAccount,
   Delegator,
   DelegatedStake,
-  RewardCutHistoryEntity
 } from '../types/schema'
 
 import {
@@ -42,6 +41,7 @@ import {
   updateAdvancedIndexerMetrics,
   createRewardsCutHistoryEntity,
   createDelegationPoolHistoryEntity,
+  createDelegatorRewardHistoryEntityFromIndexer
 } from './helpers'
 
 export function handleDelegationParametersUpdated(event: DelegationParametersUpdated): void {
@@ -59,7 +59,6 @@ export function handleDelegationParametersUpdated(event: DelegationParametersUpd
     createRewardsCutHistoryEntity(indexer, event)
   }
 }
-
 
 /**
  * @dev handleStakeDeposited
@@ -227,6 +226,8 @@ export function handleStakeDelegated(event: StakeDelegated): void {
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalDelegatedTokens = graphNetwork.totalDelegatedTokens.plus(event.params.tokens)
   graphNetwork.save()
+
+  createDelegatorRewardHistoryEntityFromIndexer(indexer, event)
 }
 
 export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
@@ -274,6 +275,7 @@ export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalDelegatedTokens = graphNetwork.totalDelegatedTokens.minus(event.params.tokens)
   graphNetwork.save()
+  createDelegatorRewardHistoryEntityFromIndexer(indexer as Indexer, event)
 }
 
 export function handleStakeDelegatedWithdrawn(event: StakeDelegatedWithdrawn): void {
@@ -344,7 +346,6 @@ export function handleAllocationCreated(event: AllocationCreated): void {
   allocation.createdAt = event.block.timestamp.toI32()
   allocation.closedAt = 0
   allocation.save()
-
 }
 
 // Transfers tokens from a state channel to the staking contract
@@ -544,6 +545,7 @@ export function handleRebateClaimed(event: RebateClaimed): void {
     event.params.delegationFees.plus(event.params.tokens),
   )
   graphNetwork.save()
+  createDelegatorRewardHistoryEntityFromIndexer(indexer as Indexer, event)
 }
 
 /**

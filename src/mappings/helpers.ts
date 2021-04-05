@@ -16,14 +16,13 @@ import {
   DelegatedStake,
   RewardCutHistoryEntity,
   DelegationPoolHistoryEntity,
+  DelegatorRewardHistoryEntity,
 } from '../types/schema'
 import { ENS } from '../types/GNS/ENS'
 import { Controller } from '../types/Controller/Controller'
 
 import { addresses } from '../../config/addresses'
-import {
-  ethereum,
-} from "@graphprotocol/graph-ts";
+import { ethereum } from '@graphprotocol/graph-ts'
 export function createOrLoadSubgraph(
   subgraphID: string,
   owner: Address,
@@ -688,22 +687,46 @@ export function createDelegationPoolHistoryEntity(indexer: Indexer, event: ether
   cutHistory.indexingRewardCut = indexer.indexingRewardCut
   cutHistory.queryFeeCut = indexer.queryFeeCut
 
-  cutHistory.queryFeeEffectiveCut = indexer.stakedTokens.plus(
-    indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.queryFeeCut)).div(MILLION)
-  )
-  .times(MILLION)
-  .div(
-    indexer.stakedTokens.plus(indexer.delegatedTokens)
-  ).toI32()
-  cutHistory.indexingRewardEffectiveCut = indexer.stakedTokens.plus(
-    indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.indexingRewardCut)).div(MILLION)
-  )
-  .times(MILLION)
-  .div(
-    indexer.stakedTokens.plus(indexer.delegatedTokens)
-  ).toI32()
+  cutHistory.queryFeeEffectiveCut = indexer.stakedTokens
+    .plus(indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.queryFeeCut)).div(MILLION))
+    .times(MILLION)
+    .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
+    .toI32()
+  cutHistory.indexingRewardEffectiveCut = indexer.stakedTokens
+    .plus(indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.indexingRewardCut)).div(MILLION))
+    .times(MILLION)
+    .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
+    .toI32()
   cutHistory.blockNumber = event.block.number.toI32()
   cutHistory.timestamp = event.block.timestamp.toI32()
   cutHistory.epoch = graphNetwork.currentEpoch
   cutHistory.save()
+}
+
+export function createDelegatorRewardHistoryEntityFromIndexer(
+  indexer: Indexer,
+  event: ethereum.Event
+): void {
+  let graphNetwork = GraphNetwork.load('1')
+  let delegatorsListStrings = indexer.get("delegators").toBytesArray() as Address[]
+  for (let i = 0; i < delegatorsListStrings.length; i++) {
+    let delegatorStakeid = delegatorsListStrings[i].toHexString()
+    let delegatedStake = DelegatedStake.load(delegatorStakeid)
+    if (delegatedStake) {
+      let rewardHistoryEntity = new DelegatorRewardHistoryEntity(
+        indexer.id + delegatedStake.delegator + event.block.number.toString(),
+      )
+      rewardHistoryEntity.indexer = indexer.id
+      rewardHistoryEntity.delegator = delegatedStake.delegator
+
+      rewardHistoryEntity.reward = indexer.delegationExchangeRate
+        .minus(delegatedStake.personalExchangeRate)
+        .times(delegatedStake.shareAmount.toBigDecimal())
+
+      rewardHistoryEntity.blockNumber = event.block.number.toI32()
+      rewardHistoryEntity.timestamp = event.block.timestamp.toI32()
+      rewardHistoryEntity.epoch = graphNetwork.currentEpoch
+      rewardHistoryEntity.save()
+    }
+  }
 }
