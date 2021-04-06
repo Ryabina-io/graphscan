@@ -532,6 +532,7 @@ type Indexer @entity {
   annualizedReturn: BigDecimal! # You must multiple by 100 to get percentage
   "NOT IMPLEMENTED - Staking efficiency of the indexer"
   stakingEfficiency: BigDecimal!
+  delegatorsList: [Bytes!]
 }
 
 """

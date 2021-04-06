@@ -133,6 +133,7 @@ export function createOrLoadIndexer(id: string, timestamp: BigInt): Indexer {
     indexer.totalReturn = BigDecimal.fromString('0')
     indexer.annualizedReturn = BigDecimal.fromString('0')
     indexer.stakingEfficiency = BigDecimal.fromString('0')
+    indexer.delegatorsList = []
 
     let graphAccount = GraphAccount.load(id)
     graphAccount.indexer = id
@@ -190,8 +191,12 @@ export function createOrLoadDelegatedStake(
     delegatedStake.personalExchangeRate = BigDecimal.fromString('0')
     delegatedStake.realizedRewards = BigDecimal.fromString('0')
     delegatedStake.createdAt = timestamp
-
     delegatedStake.save()
+    let indexerEntity = Indexer.load(indexer)
+    let newDelegatorsList = indexerEntity.delegatorsList
+    newDelegatorsList.push(Bytes.fromHexString(delegator) as Bytes)
+    indexerEntity.delegatorsList = newDelegatorsList
+    indexerEntity.save()
   }
   return delegatedStake as DelegatedStake
 }
@@ -686,21 +691,24 @@ export function createDelegationPoolHistoryEntity(indexer: Indexer, event: ether
   cutHistory.indexer = indexer.id
   cutHistory.indexingRewardCut = indexer.indexingRewardCut
   cutHistory.queryFeeCut = indexer.queryFeeCut
-
-  cutHistory.queryFeeEffectiveCut = indexer.stakedTokens
-    .plus(indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.queryFeeCut)).div(MILLION))
-    .times(MILLION)
-    .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
-    .toI32()
-  cutHistory.indexingRewardEffectiveCut = indexer.stakedTokens
-    .plus(indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.indexingRewardCut)).div(MILLION))
-    .times(MILLION)
-    .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
-    .toI32()
-  cutHistory.blockNumber = event.block.number.toI32()
-  cutHistory.timestamp = event.block.timestamp.toI32()
-  cutHistory.epoch = graphNetwork.currentEpoch
-  cutHistory.save()
+  if (indexer.stakedTokens.plus(indexer.delegatedTokens).notEqual(BigInt.fromI32(0))) {
+    cutHistory.queryFeeEffectiveCut = indexer.stakedTokens
+      .plus(indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.queryFeeCut)).div(MILLION))
+      .times(MILLION)
+      .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
+      .toI32()
+    cutHistory.indexingRewardEffectiveCut = indexer.stakedTokens
+      .plus(
+        indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.indexingRewardCut)).div(MILLION),
+      )
+      .times(MILLION)
+      .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
+      .toI32()
+    cutHistory.blockNumber = event.block.number.toI32()
+    cutHistory.timestamp = event.block.timestamp.toI32()
+    cutHistory.epoch = graphNetwork.currentEpoch
+    cutHistory.save()
+  }
 }
 
 export function createDelegatorRewardHistoryEntityFromIndexer(
@@ -708,10 +716,10 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
   event: ethereum.Event,
 ): void {
   let graphNetwork = GraphNetwork.load('1')
-  let delegatorsListStrings = indexer.get('delegators').toBytesArray() as Address[]
+  let delegatorsListStrings = indexer.get("delegatorsList").toBytesArray() as Address[]
   for (let i = 0; i < delegatorsListStrings.length; i++) {
-    let delegatorStakeid = delegatorsListStrings[i].toHexString()
-    let delegatedStake = DelegatedStake.load(delegatorStakeid)
+    let delegatorStakeid = delegatorsListStrings[i]
+    let delegatedStake = DelegatedStake.load(joinID([delegatorStakeid.toHexString(), indexer.id]))
     if (delegatedStake) {
       let id = indexer.id + delegatedStake.delegator + event.block.number.toString()
       let rewardHistoryEntity = DelegatorRewardHistoryEntity.load(id)
@@ -726,11 +734,13 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
       rewardHistoryEntity.reward = indexer.delegationExchangeRate
         .minus(delegatedStake.personalExchangeRate)
         .times(delegatedStake.shareAmount.toBigDecimal())
-
-      rewardHistoryEntity.blockNumber = event.block.number.toI32()
-      rewardHistoryEntity.timestamp = event.block.timestamp.toI32()
-      rewardHistoryEntity.epoch = graphNetwork.currentEpoch
-      rewardHistoryEntity.save()
+      if (rewardHistoryEntity.reward.gt(BigDecimal.fromString("0"))) {
+        // save only non zero rewards
+        rewardHistoryEntity.blockNumber = event.block.number.toI32()
+        rewardHistoryEntity.timestamp = event.block.timestamp.toI32()
+        rewardHistoryEntity.epoch = graphNetwork.currentEpoch
+        rewardHistoryEntity.save()
+      }
     }
   }
 }
