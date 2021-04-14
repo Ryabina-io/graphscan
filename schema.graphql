@@ -533,6 +533,8 @@ type Indexer @entity {
   "NOT IMPLEMENTED - Staking efficiency of the indexer"
   stakingEfficiency: BigDecimal!
   delegatorsList: [Bytes!]
+
+  delegatorsCount: Int!
 }
 
 """
@@ -657,6 +659,7 @@ type Delegator @entity {
   #"increasing stakingtokens"
   #TODO
   #currentDelegationAmount: BigInt
+  stakesCount: Int!
 }
 
 """
@@ -706,6 +709,7 @@ type Curator @entity {
   "Subgraphs the curator is curating"
   signals: [Signal!]! @derivedFrom(field: "curator")
 
+  signalsCount: Int!
   "CUMULATIVE tokens signalled on all names"
   totalNameSignalledTokens: BigInt!
   "CUMULATIVE tokens unsignalled on all names"

@@ -128,6 +128,7 @@ export function createOrLoadIndexer(id: string, timestamp: BigInt): Indexer {
     indexer.lastDelegationParameterUpdate = 0
     indexer.forcedClosures = 0
     indexer.allocationCount = 0
+    indexer.delegatorsCount = 0
     indexer.totalAllocationCount = BigInt.fromI32(0)
 
     indexer.totalReturn = BigDecimal.fromString('0')
@@ -159,6 +160,7 @@ export function createOrLoadDelegator(id: string, timestamp: BigInt): Delegator 
     delegator.totalUnstakedTokens = BigInt.fromI32(0)
     delegator.createdAt = timestamp.toI32()
     delegator.totalRealizedRewards = BigDecimal.fromString('0')
+    delegator.stakesCount = 0
     delegator.save()
 
     let graphAccount = GraphAccount.load(id)
@@ -195,8 +197,12 @@ export function createOrLoadDelegatedStake(
     let indexerEntity = Indexer.load(indexer)
     let newDelegatorsList = indexerEntity.delegatorsList
     newDelegatorsList.push(Bytes.fromHexString(delegator) as Bytes)
+    indexerEntity.delegatorsCount = indexerEntity.delegatorsCount + 1
     indexerEntity.delegatorsList = newDelegatorsList
     indexerEntity.save()
+    let delegatorEntity = Delegator.load(delegator)
+    delegatorEntity.stakesCount = delegatorEntity.stakesCount + 1
+    delegatorEntity.save()
   }
   return delegatedStake as DelegatedStake
 }
@@ -220,6 +226,7 @@ export function createOrLoadCurator(id: string, timestamp: BigInt): Curator {
     curator.totalNameSignalAverageCostBasis = BigDecimal.fromString('0')
     curator.totalNameSignal = BigDecimal.fromString('0')
     curator.totalAverageCostBasisPerNameSignal = BigDecimal.fromString('0')
+    curator.signalsCount = 0
     curator.save()
 
     let graphAccount = GraphAccount.load(id)
@@ -246,6 +253,8 @@ export function createOrLoadSignal(curator: string, subgraphDeploymentID: string
     signal.lastSignalChange = 0
     signal.realizedRewards = BigInt.fromI32(0)
     signal.save()
+    let curatorEntity = Curator.load(curator)
+    curatorEntity.signalsCount = curatorEntity.signalsCount + 1
   }
   return signal as Signal
 }
