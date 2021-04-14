@@ -725,7 +725,7 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
   event: ethereum.Event,
 ): void {
   let graphNetwork = GraphNetwork.load('1')
-  let delegatorsListStrings = indexer.get("delegatorsList").toBytesArray() as Address[]
+  let delegatorsListStrings = indexer.get('delegatorsList').toBytesArray() as Address[]
   for (let i = 0; i < delegatorsListStrings.length; i++) {
     let delegatorStakeid = delegatorsListStrings[i]
     let delegatedStake = DelegatedStake.load(joinID([delegatorStakeid.toHexString(), indexer.id]))
@@ -744,11 +744,21 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
         .minus(delegatedStake.personalExchangeRate)
         .times(delegatedStake.shareAmount.toBigDecimal())
       delegatedStake.unreleasedReward = rewardHistoryEntity.reward
-      delegatedStake.realizedRewards = delegatedStake.unreleasedReward.plus(delegatedStake.realizedRewards)
-      delegatedStake.currentDelegationAmount = delegatedStake.shareAmount.div(indexer.delegatorShares).times(indexer.delegatedTokens)
-      delegatedStake.unreleasedRewardsPercent = delegatedStake.unreleasedReward.div(delegatedStake.currentDelegationAmount.toBigDecimal())
+      delegatedStake.realizedRewards = delegatedStake.unreleasedReward.plus(
+        delegatedStake.realizedRewards,
+      )
+      if (indexer.delegatorShares.gt(BigInt.fromI32(0))) {
+        delegatedStake.currentDelegationAmount = delegatedStake.shareAmount
+          .div(indexer.delegatorShares)
+          .times(indexer.delegatedTokens)
+      }
+      if (delegatedStake.currentDelegationAmount.gt(BigInt.fromI32(0))) {
+        delegatedStake.unreleasedRewardsPercent = delegatedStake.unreleasedReward.div(
+          delegatedStake.currentDelegationAmount.toBigDecimal(),
+        )
+      }
       delegatedStake.save()
-      if (rewardHistoryEntity.reward.gt(BigDecimal.fromString("0"))) {
+      if (rewardHistoryEntity.reward.gt(BigDecimal.fromString('0'))) {
         // save only non zero rewards
         rewardHistoryEntity.blockNumber = event.block.number.toI32()
         rewardHistoryEntity.timestamp = event.block.timestamp.toI32()
