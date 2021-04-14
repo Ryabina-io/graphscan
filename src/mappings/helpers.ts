@@ -752,7 +752,7 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
           .div(indexer.delegatorShares)
           .times(indexer.delegatedTokens)
       }
-      if (delegatedStake.currentDelegationAmount.gt(BigInt.fromI32(0))) {
+      if (delegatedStake.currentDelegationAmount.toBigDecimal().gt(BigDecimal.fromString("0"))) {
         delegatedStake.unreleasedRewardsPercent = delegatedStake.unreleasedReward.div(
           delegatedStake.currentDelegationAmount.toBigDecimal(),
         )
