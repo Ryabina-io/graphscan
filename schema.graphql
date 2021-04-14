@@ -651,14 +651,6 @@ type Delegator @entity {
   "lastCreatedDelegatedStake"
   lastUnDelegationAt: Int
 
-  #CODE _.multiply(_.subtract(s.indexer.delegationExchangeRate,s.personalExchangeRate), s.shareAmount)"
-  # TODO
-  #unreleaseReward: BigInt
-
-  #CODE _.multiply(_.divide(d.shareAmount, indexerStats.data.indexer.delegatorShares), indexerStats.data.indexer.delegatedTokens)"
-  #"increasing stakingtokens"
-  #TODO
-  #currentDelegationAmount: BigInt
   stakesCount: Int!
 }
 
@@ -690,6 +682,17 @@ type DelegatedStake @entity {
   createdAt: Int!
   "Time this delegator make last undelegate from an indexer"
   lastUndelegatedAt: Int
+
+  unreleasedRewardsPercent: BigDecimal
+  totalRewards: BigDecimal
+
+  #CODE _.multiply(_.subtract(s.indexer.delegationExchangeRate,s.personalExchangeRate), s.shareAmount)"
+  unreleasedReward: BigDecimal
+
+  #CODE _.multiply(_.divide(d.shareAmount, indexerStats.data.indexer.delegatorShares), indexerStats.data.indexer.delegatedTokens)"
+  #"increasing stakingtokens"
+  #TODO
+  currentDelegationAmount: BigInt
 }
 
 """
@@ -878,9 +881,7 @@ type RewardCutHistoryEntity @entity {
   timestamp: Int!
   epoch: Int!
 }
-"""
-Reward cut history entity
-"""
+
 type DelegationPoolHistoryEntity @entity {
   "Concatenation of indexer address and blocknumber and maybe something more"
   id: ID!

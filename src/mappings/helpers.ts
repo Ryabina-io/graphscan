@@ -743,6 +743,11 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
       rewardHistoryEntity.reward = indexer.delegationExchangeRate
         .minus(delegatedStake.personalExchangeRate)
         .times(delegatedStake.shareAmount.toBigDecimal())
+      delegatedStake.unreleasedReward = rewardHistoryEntity.reward
+      delegatedStake.realizedRewards = delegatedStake.unreleasedReward.plus(delegatedStake.realizedRewards)
+      delegatedStake.currentDelegationAmount = delegatedStake.shareAmount.div(indexer.delegatorShares).times(indexer.delegatedTokens)
+      delegatedStake.unreleasedRewardsPercent = delegatedStake.unreleasedReward.div(delegatedStake.currentDelegationAmount.toBigDecimal())
+      delegatedStake.save()
       if (rewardHistoryEntity.reward.gt(BigDecimal.fromString("0"))) {
         // save only non zero rewards
         rewardHistoryEntity.blockNumber = event.block.number.toI32()
