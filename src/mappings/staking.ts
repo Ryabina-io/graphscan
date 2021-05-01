@@ -39,8 +39,6 @@ import {
   createOrLoadDelegatedStake,
   createOrLoadGraphAccount,
   updateAdvancedIndexerMetrics,
-  createRewardsCutHistoryEntity,
-  createDelegationPoolHistoryEntity,
   createDelegatorRewardHistoryEntityFromIndexer
 } from './helpers'
 
@@ -54,9 +52,8 @@ export function handleDelegationParametersUpdated(event: DelegationParametersUpd
     indexer.queryFeeCut = event.params.queryFeeCut.toI32()
     indexer.delegatorParameterCooldown = event.params.cooldownBlocks.toI32()
     indexer.lastDelegationParameterUpdate = event.block.number.toI32()
-    indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+    indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
     indexer.save()
-    createRewardsCutHistoryEntity(indexer, event)
   }
 }
 
@@ -72,11 +69,9 @@ export function handleStakeDeposited(event: StakeDeposited): void {
   let indexer = createOrLoadIndexer(id, event.block.timestamp)
   let previousStake = indexer.stakedTokens
   indexer.stakedTokens = indexer.stakedTokens.plus(event.params.tokens)
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
-  createRewardsCutHistoryEntity(indexer, event)
-  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // Update graph network
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalTokensStaked = graphNetwork.totalTokensStaked.plus(event.params.tokens)
@@ -103,7 +98,7 @@ export function handleStakeLocked(event: StakeLocked): void {
   let indexer = Indexer.load(id)
   indexer.lockedTokens = event.params.tokens
   indexer.tokensLockedUntil = event.params.until.toI32()
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
@@ -127,11 +122,9 @@ export function handleStakeWithdrawn(event: StakeWithdrawn): void {
   indexer.stakedTokens = indexer.stakedTokens.minus(event.params.tokens)
   indexer.lockedTokens = indexer.lockedTokens.minus(event.params.tokens)
   indexer.tokensLockedUntil = 0 // always set to 0 when withdrawn
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
-  createRewardsCutHistoryEntity(indexer as Indexer, event)
-  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // Update graph network
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalTokensStaked = graphNetwork.totalTokensStaked.minus(event.params.tokens)
@@ -161,12 +154,10 @@ export function handleStakeSlashed(event: StakeSlashed): void {
   let staking = Staking.bind(event.address)
   let indexerStored = staking.stakes(event.params.indexer)
   indexer.lockedTokens = indexerStored.value2
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
-  createRewardsCutHistoryEntity(indexer as Indexer, event)
-  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // Update graph network
   graphNetwork.totalTokensStaked = graphNetwork.totalTokensStaked.minus(event.params.tokens)
   graphNetwork.save()
@@ -185,11 +176,9 @@ export function handleStakeDelegated(event: StakeDelegated): void {
       .toBigDecimal()
       .div(indexer.delegatorShares.toBigDecimal())
   }
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
-  createRewardsCutHistoryEntity(indexer, event)
-  createDelegationPoolHistoryEntity(indexer as Indexer, event)
 
   // update delegator
   let delegatorID = event.params.delegator.toHexString()
@@ -242,12 +231,10 @@ export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
       .toBigDecimal()
       .div(indexer.delegatorShares.toBigDecimal())
   }
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
-  createRewardsCutHistoryEntity(indexer as Indexer, event)
-  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // update delegated stake
   let delegatorID = event.params.delegator.toHexString()
   let id = joinID([delegatorID, indexerID])
@@ -307,7 +294,7 @@ export function handleAllocationCreated(event: AllocationCreated): void {
   indexer.allocatedTokens = indexer.allocatedTokens.plus(event.params.tokens)
   indexer.totalAllocationCount = indexer.totalAllocationCount.plus(BigInt.fromI32(1))
   indexer.allocationCount = indexer.allocationCount + 1
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
@@ -434,7 +421,7 @@ export function handleAllocationClosed(event: AllocationClosed): void {
   }
   indexer.allocatedTokens = indexer.allocatedTokens.minus(event.params.tokens)
   indexer.allocationCount = indexer.allocationCount - 1
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
@@ -506,10 +493,9 @@ export function handleRebateClaimed(event: RebateClaimed): void {
       .toBigDecimal()
       .div(indexer.delegatorShares.toBigDecimal())
   }
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer.save()
-  createRewardsCutHistoryEntity(indexer as Indexer, event)
-  createDelegationPoolHistoryEntity(indexer as Indexer, event)
+
   // update allocation
   let allocation = Allocation.load(allocationID)
   allocation.queryFeeRebates = event.params.tokens

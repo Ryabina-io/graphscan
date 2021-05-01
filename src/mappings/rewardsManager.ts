@@ -10,8 +10,6 @@ import {
   createOrLoadSubgraphDeployment,
   createOrLoadEpoch,
   updateAdvancedIndexerMetrics,
-  createRewardsCutHistoryEntity,
-  createDelegationPoolHistoryEntity,
   createDelegatorRewardHistoryEntityFromIndexer
 } from './helpers'
 
@@ -40,10 +38,8 @@ export function handleRewardsAssigned(event: RewardsAssigned): void {
       .toBigDecimal()
       .div(indexer.delegatorShares.toBigDecimal())
   }
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer.save()
-  createRewardsCutHistoryEntity(indexer as Indexer, event)
-  createDelegationPoolHistoryEntity(indexer as Indexer, event)
   // update allocation
   // no status updated, Claimed happens when RebateClaimed, and it is done
   let allocation = Allocation.load(allocationID)

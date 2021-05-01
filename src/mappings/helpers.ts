@@ -118,7 +118,8 @@ export function createOrLoadIndexer(id: string, timestamp: BigInt): Indexer {
     indexer.delegatorShares = BigInt.fromI32(0)
     indexer.delegationExchangeRate = BigDecimal.fromString('0')
     indexer.indexingRewardCut = 0
-    indexer.indexingRewardEffectiveCut = BigDecimal.fromString('0')
+    indexer.indexingRewardEffectiveCut = 0
+    indexer.queryFeeEffectiveCut = 0
     indexer.overDelegationDilution = BigDecimal.fromString('0')
     indexer.delegatorIndexingRewards = BigInt.fromI32(0)
     indexer.indexerIndexingRewards = BigInt.fromI32(0)
@@ -627,15 +628,6 @@ export function calculateDelegatedStakeRatio(indexer: Indexer): BigDecimal {
     : BigDecimal.fromString('1') - indexer.ownStakeRatio
 }
 
-export function calculateEffectiveCut(indexer: Indexer): BigDecimal {
-  let delegatorCut =
-    BigInt.fromI32(1000000 - indexer.indexingRewardCut).toBigDecimal() /
-    BigDecimal.fromString('1000000')
-  return indexer.delegatedStakeRatio == BigDecimal.fromString('0')
-    ? BigDecimal.fromString('0')
-    : BigDecimal.fromString('1') - delegatorCut / indexer.delegatedStakeRatio
-}
-
 export function calculateIndexerRewardOwnGenerationRatio(indexer: Indexer): BigDecimal {
   let rewardCut =
     BigInt.fromI32(indexer.indexingRewardCut).toBigDecimal() / BigDecimal.fromString('1000000')
@@ -655,14 +647,28 @@ export function calculateOverdelegationDilution(indexer: Indexer): BigDecimal {
     : BigDecimal.fromString('1') - maxDelegatedStake / max(maxDelegatedStake, delegatedTokensBD)
 }
 
-export function updateAdvancedIndexerMetrics(indexer: Indexer): Indexer {
+export function updateAdvancedIndexerMetrics(indexer: Indexer, event: ethereum.Event): Indexer {
+  let MILLION = BigInt.fromI32(1000000)
   indexer.ownStakeRatio = calculateOwnStakeRatio(indexer as Indexer)
   indexer.delegatedStakeRatio = calculateDelegatedStakeRatio(indexer as Indexer)
-  indexer.indexingRewardEffectiveCut = calculateEffectiveCut(indexer as Indexer)
+  if (indexer.stakedTokens.plus(indexer.delegatedTokens).notEqual(BigInt.fromI32(0))) {
+    indexer.queryFeeEffectiveCut = indexer.stakedTokens
+      .plus(indexer.delegatedTokens.times(BigInt.fromI32(indexer.queryFeeCut)).div(MILLION))
+      .times(MILLION)
+      .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
+      .toI32()
+    indexer.indexingRewardEffectiveCut = indexer.stakedTokens
+      .plus(indexer.delegatedTokens.times(BigInt.fromI32(indexer.indexingRewardCut)).div(MILLION))
+      .times(MILLION)
+      .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
+      .toI32()
+  }
   indexer.indexerRewardsOwnGenerationRatio = calculateIndexerRewardOwnGenerationRatio(
     indexer as Indexer,
   )
   indexer.overDelegationDilution = calculateOverdelegationDilution(indexer as Indexer)
+  createRewardsCutHistoryEntity(indexer, event)
+  createDelegationPoolHistoryEntity(indexer, event)
   return indexer as Indexer
 }
 
@@ -673,7 +679,7 @@ export function updateDeploymentSignaledTokens(subgraph: Subgraph): void {
   subgraphDeployment.save()
 }
 
-export function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
+function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
   let id = indexer.id + event.block.number.toString()
   let poolHistory = DelegationPoolHistoryEntity.load(id)
   if (poolHistory == null) {
@@ -689,30 +695,19 @@ export function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.
   poolHistory.save()
 }
 
-export function createDelegationPoolHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
-  let id = indexer.id + event.block.number.toString()
-  let cutHistory = RewardCutHistoryEntity.load(id)
-  if (cutHistory == null) {
-    cutHistory = new RewardCutHistoryEntity(id)
-  }
-  let graphNetwork = GraphNetwork.load('1')
-  let MILLION = BigInt.fromI32(1000000)
-  cutHistory.indexer = indexer.id
-  cutHistory.indexingRewardCut = indexer.indexingRewardCut
-  cutHistory.queryFeeCut = indexer.queryFeeCut
-  if (indexer.stakedTokens.plus(indexer.delegatedTokens).notEqual(BigInt.fromI32(0))) {
-    cutHistory.queryFeeEffectiveCut = indexer.stakedTokens
-      .plus(indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.queryFeeCut)).div(MILLION))
-      .times(MILLION)
-      .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
-      .toI32()
-    cutHistory.indexingRewardEffectiveCut = indexer.stakedTokens
-      .plus(
-        indexer.delegatedTokens.times(BigInt.fromI32(cutHistory.indexingRewardCut)).div(MILLION),
-      )
-      .times(MILLION)
-      .div(indexer.stakedTokens.plus(indexer.delegatedTokens))
-      .toI32()
+function createDelegationPoolHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
+  if (indexer.queryFeeEffectiveCut || indexer.indexingRewardEffectiveCut) {
+    let id = indexer.id + event.block.number.toString()
+    let cutHistory = RewardCutHistoryEntity.load(id)
+    if (cutHistory == null) {
+      cutHistory = new RewardCutHistoryEntity(id)
+    }
+    let graphNetwork = GraphNetwork.load('1')
+    cutHistory.indexer = indexer.id
+    cutHistory.indexingRewardCut = indexer.indexingRewardCut
+    cutHistory.queryFeeCut = indexer.queryFeeCut
+    cutHistory.queryFeeEffectiveCut = indexer.queryFeeEffectiveCut
+    cutHistory.indexingRewardEffectiveCut = indexer.indexingRewardEffectiveCut
     cutHistory.blockNumber = event.block.number.toI32()
     cutHistory.timestamp = event.block.timestamp.toI32()
     cutHistory.epoch = graphNetwork.currentEpoch
@@ -752,7 +747,7 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
           .div(indexer.delegatorShares)
           .times(indexer.delegatedTokens)
       }
-      if (delegatedStake.currentDelegationAmount.toBigDecimal().gt(BigDecimal.fromString("0"))) {
+      if (delegatedStake.currentDelegationAmount.toBigDecimal().gt(BigDecimal.fromString('0'))) {
         delegatedStake.unreleasedRewardsPercent = delegatedStake.unreleasedReward.div(
           delegatedStake.currentDelegationAmount.toBigDecimal(),
         )
