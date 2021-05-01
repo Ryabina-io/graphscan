@@ -39,7 +39,7 @@ import {
   createOrLoadDelegatedStake,
   createOrLoadGraphAccount,
   updateAdvancedIndexerMetrics,
-  createDelegatorRewardHistoryEntityFromIndexer
+  createDelegatorRewardHistoryEntityFromIndexer,
 } from './helpers'
 
 export function handleDelegationParametersUpdated(event: DelegationParametersUpdated): void {

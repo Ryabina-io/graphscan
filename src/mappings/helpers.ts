@@ -100,6 +100,10 @@ export function createOrLoadIndexer(id: string, timestamp: BigInt): Indexer {
 
     indexer.stakedTokens = BigInt.fromI32(0)
     indexer.allocatedTokens = BigInt.fromI32(0)
+    indexer.notAllocatedTokens = BigInt.fromI32(0)
+    indexer.totalTokensPool = BigInt.fromI32(0)
+    indexer.delegationRemaining = BigInt.fromI32(0)
+    indexer.indexerQueryFees = BigInt.fromI32(0)
     indexer.lockedTokens = BigInt.fromI32(0)
     indexer.unstakedTokens = BigInt.fromI32(0)
     indexer.tokensLockedUntil = 0
@@ -667,6 +671,11 @@ export function updateAdvancedIndexerMetrics(indexer: Indexer, event: ethereum.E
     indexer as Indexer,
   )
   indexer.overDelegationDilution = calculateOverdelegationDilution(indexer as Indexer)
+  indexer.totalTokensPool = indexer.stakedTokens.plus(indexer.delegatedTokens)
+  indexer.notAllocatedTokens = indexer.totalTokensPool.minus(indexer.allocatedTokens)
+  indexer.indexerQueryFees = indexer.queryFeesCollected.minus(indexer.delegatorQueryFees)
+  let graphNetwork = GraphNetwork.load('1')
+  indexer.delegationRemaining = BigInt.fromI32(graphNetwork.delegationRatio).times(indexer.stakedTokens).minus(indexer.delegatedTokens)
   createRewardsCutHistoryEntity(indexer, event)
   createDelegationPoolHistoryEntity(indexer, event)
   return indexer as Indexer
@@ -679,7 +688,7 @@ export function updateDeploymentSignaledTokens(subgraph: Subgraph): void {
   subgraphDeployment.save()
 }
 
-function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
+function createDelegationPoolHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
   let id = indexer.id + event.block.number.toString()
   let poolHistory = DelegationPoolHistoryEntity.load(id)
   if (poolHistory == null) {
@@ -695,7 +704,7 @@ function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.Event):
   poolHistory.save()
 }
 
-function createDelegationPoolHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
+function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
   if (indexer.queryFeeEffectiveCut || indexer.indexingRewardEffectiveCut) {
     let id = indexer.id + event.block.number.toString()
     let cutHistory = RewardCutHistoryEntity.load(id)

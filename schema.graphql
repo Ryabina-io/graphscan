@@ -460,6 +460,8 @@ type Indexer @entity {
   stakedTokens: BigInt!
   "CURRENT  tokens allocated on all subgraphs"
   allocatedTokens: BigInt!
+  "CURRENT  tokens NOT allocated on all subgraphs"
+  notAllocatedTokens: BigInt!
   "NOT IMPLEMENTED - Tokens that have been unstaked and withdrawn"
   unstakedTokens: BigInt! # will be used for return % calcs
   "CURRENT tokens locked"
@@ -500,6 +502,8 @@ type Indexer @entity {
   delegators: [DelegatedStake!]! @derivedFrom(field: "indexer")
   "CURRENT tokens delegated to the indexer"
   delegatedTokens: BigInt!
+  totalTokensPool: BigInt!
+  delegationRemaining: BigInt!
   "Ratio between the amount of the indexers own stake over the total usable stake."
   ownStakeRatio: BigDecimal!
   "Ratio between the amount of delegated stake over the total usable stake."
@@ -516,6 +520,8 @@ type Indexer @entity {
   overDelegationDilution: BigDecimal!
   "The total amount of query fees given to delegators"
   delegatorQueryFees: BigInt!
+  "The total amount of query fees given to delegators"
+  indexerQueryFees: BigInt!
   "The percent of query rebate rewards the Indexer keeps for itself. In parts per million"
   queryFeeCut: Int!
   "In parts per million"
