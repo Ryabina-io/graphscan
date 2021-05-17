@@ -167,6 +167,7 @@ export function createOrLoadDelegator(id: string, timestamp: BigInt): Delegator 
     delegator.createdAt = timestamp.toI32()
     delegator.totalRealizedRewards = BigDecimal.fromString('0')
     delegator.stakesCount = 0
+    delegator.currentStaked = BigDecimal.fromString('0')
     delegator.save()
 
     let graphAccount = GraphAccount.load(id)
@@ -201,6 +202,8 @@ export function createOrLoadDelegatedStake(
     delegatedStake.createdAt = timestamp
     delegatedStake.totalRewards = BigDecimal.fromString('0')
     delegatedStake.unreleasedReward = BigDecimal.fromString('0')
+    delegatedStake.currentDelegationAmount = BigDecimal.fromString('0')
+    delegatedStake.unreleasedRewardsPercent = BigDecimal.fromString('0')
     delegatedStake.save()
     let indexerEntity = Indexer.load(indexer)
     let newDelegatorsList = indexerEntity.delegatorsList
@@ -743,6 +746,11 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
     let delegatedStake = DelegatedStake.load(joinID([delegatorStakeid.toHexString(), indexer.id]))
     if (delegatedStake) {
       let id = indexer.id + delegatedStake.delegator + event.block.number.toString()
+      let delegator = Delegator.load(delegatedStake.delegator)
+      // вычитам старое значение текущего стейка
+      delegator.currentStaked = delegator.currentStaked.minus(
+        delegatedStake.currentDelegationAmount,
+      )
       let rewardHistoryEntity = DelegatorRewardHistoryEntity.load(id)
       if (rewardHistoryEntity == null) {
         rewardHistoryEntity = new DelegatorRewardHistoryEntity(
@@ -759,17 +767,18 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
       delegatedStake.realizedRewards = delegatedStake.unreleasedReward.plus(
         delegatedStake.realizedRewards,
       )
-      if (indexer.delegatorShares.gt(BigInt.fromI32(0))) {
-        delegatedStake.currentDelegationAmount = delegatedStake.shareAmount
-          .div(indexer.delegatorShares)
-          .times(indexer.delegatedTokens)
-      }
-      if (delegatedStake.currentDelegationAmount.toBigDecimal().gt(BigDecimal.fromString('0'))) {
+      delegatedStake.currentDelegationAmount = delegatedStake.shareAmount
+        .toBigDecimal()
+        .times(indexer.delegationExchangeRate)
+      if (delegatedStake.currentDelegationAmount.gt(BigDecimal.fromString('0'))) {
         delegatedStake.unreleasedRewardsPercent = delegatedStake.unreleasedReward.div(
-          delegatedStake.currentDelegationAmount.toBigDecimal(),
+          delegatedStake.currentDelegationAmount,
         )
       }
       delegatedStake.save()
+      // добавляем новое значение текущего стейка
+      delegator.currentStaked = delegator.currentStaked.plus(delegatedStake.currentDelegationAmount)
+      delegator.save()
       if (rewardHistoryEntity.reward.gt(BigDecimal.fromString('0'))) {
         // save only non zero rewards
         rewardHistoryEntity.blockNumber = event.block.number.toI32()
