@@ -692,10 +692,11 @@ type DelegatedStake @entity {
   lastUndelegatedAt: Int
 
   unreleasedRewardsPercent: BigDecimal
-  totalRewards: BigDecimal
+  totalRewards: BigDecimal!
 
+  releasedReward: BigDecimal!
   #CODE _.multiply(_.subtract(s.indexer.delegationExchangeRate,s.personalExchangeRate), s.shareAmount)"
-  unreleasedReward: BigDecimal
+  unreleasedReward: BigDecimal!
 
   #CODE _.multiply(_.divide(d.shareAmount, indexerStats.data.indexer.delegatorShares), indexerStats.data.indexer.delegatedTokens)"
   #"increasing stakingtokens"
