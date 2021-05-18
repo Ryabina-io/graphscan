@@ -185,6 +185,7 @@ export function handleStakeDelegated(event: StakeDelegated): void {
   let delegator = createOrLoadDelegator(delegatorID, event.block.timestamp)
   delegator.totalStakedTokens = delegator.totalStakedTokens.plus(event.params.tokens)
   delegator.lastDelegationAt = event.block.timestamp.toI32()
+  delegator.currentStaked = delegator.currentStaked.plus(event.params.tokens.toBigDecimal())
   delegator.save()
 
   // update delegated stake
