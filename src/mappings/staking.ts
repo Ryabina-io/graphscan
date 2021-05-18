@@ -273,6 +273,12 @@ export function handleStakeDelegatedWithdrawn(event: StakeDelegatedWithdrawn): v
   delegatedStake.lockedTokens = BigInt.fromI32(0)
   delegatedStake.lockedUntil = 0
   delegatedStake.save()
+  // update delegator
+  if (delegatedStake.shareAmount.isZero()) {
+    let delegator = Delegator.load(delegatorID)
+    delegator.stakesCount = delegator.stakesCount - 1
+    delegator.save()
+  }
 }
 
 /**
