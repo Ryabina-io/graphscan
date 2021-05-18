@@ -778,6 +778,9 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
           delegatedStake.currentDelegationAmount,
         )
       }
+      delegatedStake.totalRewards = delegatedStake.releasedReward.plus(
+        delegatedStake.unreleasedReward,
+      )
       delegatedStake.save()
       // добавляем новое значение текущего стейка
       delegator.currentStaked = delegator.currentStaked.plus(delegatedStake.currentDelegationAmount)
