@@ -193,6 +193,7 @@ export function createOrLoadDelegatedStake(
     delegatedStake = new DelegatedStake(id)
     delegatedStake.indexer = indexer
     delegatedStake.delegator = delegator
+    delegatedStake.delegatorId = delegator
     delegatedStake.stakedTokens = BigInt.fromI32(0)
     delegatedStake.unstakedTokens = BigInt.fromI32(0)
     delegatedStake.lockedTokens = BigInt.fromI32(0)

@@ -674,6 +674,7 @@ type DelegatedStake @entity {
   indexer: Indexer!
   "Delegator"
   delegator: Delegator!
+  delegatorId: ID!
   "CUMULATIVE tokens delegated"
   stakedTokens: BigInt!
   "CUMULATIVE tokens undelegated"
