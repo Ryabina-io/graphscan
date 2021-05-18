@@ -185,7 +185,6 @@ export function handleStakeDelegated(event: StakeDelegated): void {
   let delegator = createOrLoadDelegator(delegatorID, event.block.timestamp)
   delegator.totalStakedTokens = delegator.totalStakedTokens.plus(event.params.tokens)
   delegator.lastDelegationAt = event.block.timestamp.toI32()
-  delegator.currentStaked = delegator.currentStaked.plus(event.params.tokens.toBigDecimal())
   delegator.save()
 
   // update delegated stake
@@ -207,7 +206,10 @@ export function handleStakeDelegated(event: StakeDelegated): void {
       )
     }
   }
-
+  if (delegatedStake.shareAmount.isZero()) {
+    // обновляем createdAt если делегация от нулевой стала ненулевой
+    delegatedStake.createdAt = event.block.timestamp.toI32()
+  }
   delegatedStake.stakedTokens = delegatedStake.stakedTokens.plus(event.params.tokens)
   delegatedStake.shareAmount = delegatedStake.shareAmount.plus(event.params.shares)
   delegatedStake.save()
