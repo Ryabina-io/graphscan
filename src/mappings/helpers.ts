@@ -123,8 +123,8 @@ export function createOrLoadIndexer(id: string, timestamp: BigInt): Indexer {
     indexer.delegatorShares = BigInt.fromI32(0)
     indexer.delegationExchangeRate = BigDecimal.fromString('0')
     indexer.indexingRewardCut = 0
-    indexer.indexingRewardEffectiveCut = 0
-    indexer.queryFeeEffectiveCut = 0
+    indexer.indexingRewardEffectiveCut = BigInt.fromI32(0)
+    indexer.queryFeeEffectiveCut = BigInt.fromI32(0)
     indexer.overDelegationDilution = BigDecimal.fromString('0')
     indexer.delegatorIndexingRewards = BigInt.fromI32(0)
     indexer.indexerIndexingRewards = BigInt.fromI32(0)
@@ -670,14 +670,12 @@ export function updateAdvancedIndexerMetrics(indexer: Indexer, event: ethereum.E
       .minus(indexer.stakedTokens)
       .times(MILLION)
       .div(indexer.delegatedTokens)
-      .toI32()
     indexer.indexingRewardEffectiveCut = BigInt.fromI32(indexer.indexingRewardCut)
       .times(indexer.stakedTokens.plus(indexer.delegatedTokens))
       .div(MILLION)
       .minus(indexer.stakedTokens)
       .times(MILLION)
       .div(indexer.delegatedTokens)
-      .toI32()
   }
   indexer.indexerRewardsOwnGenerationRatio = calculateIndexerRewardOwnGenerationRatio(
     indexer as Indexer,
