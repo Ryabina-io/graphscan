@@ -605,6 +605,14 @@ type Allocation @entity {
   totalReturn: BigDecimal!
   "NOT IMPLEMENTED - Yearly annualzied return"
   annualizedReturn: BigDecimal!
+  "sets on closing"
+  indexingRewardCut: Int
+  "sets on closing"
+  indexingRewardEffectiveCut: BigInt
+  "sets on closing"
+  queryFeeCut: Int
+  "sets on closing"
+  queryFeeEffectiveCut: BigInt
 }
 
 enum AllocationStatus {

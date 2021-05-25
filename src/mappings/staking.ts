@@ -432,12 +432,17 @@ export function handleAllocationClosed(event: AllocationClosed): void {
   }
   indexer.allocatedTokens = indexer.allocatedTokens.minus(event.params.tokens)
   indexer.allocationCount = indexer.allocationCount - 1
+  let allocation = Allocation.load(allocationID)
+  // saving old cuts values
+  allocation.indexingRewardCut = indexer.indexingRewardCut
+  allocation.indexingRewardEffectiveCut = indexer.indexingRewardEffectiveCut
+  allocation.queryFeeCut = indexer.queryFeeCut
+  allocation.queryFeeEffectiveCut = indexer.queryFeeEffectiveCut
   indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
   // update allocation
-  let allocation = Allocation.load(allocationID)
   allocation.poolClosedIn = event.params.epoch.toString()
   allocation.activeForIndexer = null
   allocation.closedAt = event.block.timestamp.toI32()
