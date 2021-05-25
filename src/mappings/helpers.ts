@@ -204,7 +204,6 @@ export function createOrLoadDelegatedStake(
     delegatedStake.createdAt = timestamp
     delegatedStake.totalRewards = BigDecimal.fromString('0')
     delegatedStake.unreleasedReward = BigDecimal.fromString('0')
-    delegatedStake.releasedReward = BigDecimal.fromString('0')
     delegatedStake.currentDelegationAmount = BigDecimal.fromString('0')
     delegatedStake.unreleasedRewardsPercent = BigDecimal.fromString('0')
     delegatedStake.save()
@@ -764,9 +763,7 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
         .minus(delegatedStake.personalExchangeRate)
         .times(delegatedStake.shareAmount.toBigDecimal())
       delegatedStake.unreleasedReward = rewardHistoryEntity.reward
-      delegatedStake.realizedRewards = delegatedStake.unreleasedReward.plus(
-        delegatedStake.realizedRewards,
-      )
+
       delegatedStake.currentDelegationAmount = delegatedStake.shareAmount
         .toBigDecimal()
         .times(indexer.delegationExchangeRate)
@@ -775,7 +772,7 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
           delegatedStake.currentDelegationAmount,
         )
       }
-      delegatedStake.totalRewards = delegatedStake.releasedReward.plus(
+      delegatedStake.totalRewards = delegatedStake.realizedRewards.plus(
         delegatedStake.unreleasedReward,
       )
       delegatedStake.save()

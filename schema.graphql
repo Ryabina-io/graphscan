@@ -697,7 +697,6 @@ type DelegatedStake @entity {
   unreleasedRewardsPercent: BigDecimal!
   totalRewards: BigDecimal!
 
-  releasedReward: BigDecimal!
   #CODE _.multiply(_.subtract(s.indexer.delegationExchangeRate,s.personalExchangeRate), s.shareAmount)"
   unreleasedReward: BigDecimal!
 
