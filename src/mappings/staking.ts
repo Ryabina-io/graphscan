@@ -185,7 +185,6 @@ export function handleStakeDelegated(event: StakeDelegated): void {
   let delegator = createOrLoadDelegator(delegatorID, event.block.timestamp)
   delegator.totalStakedTokens = delegator.totalStakedTokens.plus(event.params.tokens)
   delegator.lastDelegationAt = event.block.timestamp.toI32()
-  delegator.save()
 
   // update delegated stake
   let delegatedStake = createOrLoadDelegatedStake(
@@ -205,11 +204,14 @@ export function handleStakeDelegated(event: StakeDelegated): void {
         averageCostBasisShares.toBigDecimal(),
       )
     }
+    if (delegatedStake.shareAmount.isZero()) {
+      // обновляем createdAt если делегация от нулевой стала ненулевой
+      delegatedStake.createdAt = event.block.timestamp.toI32()
+      // обновляем в таком же случае stakesCount
+      delegator.stakesCount = delegator.stakesCount + 1
+    }
   }
-  if (delegatedStake.shareAmount.isZero()) {
-    // обновляем createdAt если делегация от нулевой стала ненулевой
-    delegatedStake.createdAt = event.block.timestamp.toI32()
-  }
+  delegator.save()
   delegatedStake.stakedTokens = delegatedStake.stakedTokens.plus(event.params.tokens)
   delegatedStake.shareAmount = delegatedStake.shareAmount.plus(event.params.shares)
   delegatedStake.save()
