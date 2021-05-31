@@ -36,9 +36,9 @@ export function handleSignalled(event: Signalled): void {
     event.params.tokens.minus(event.params.curationTax),
   )
 
-  let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
   // Update signal
   let subgraphDeploymentID = event.params.subgraphDeploymentID.toHexString()
+  let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
   let signal = createOrLoadSignal(id, subgraphDeploymentID)
   if (signal.signalledTokens.isZero()) {
     curator.signalsCount = curator.signalsCount + 1
