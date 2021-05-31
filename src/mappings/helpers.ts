@@ -166,7 +166,9 @@ export function createOrLoadDelegator(id: string, timestamp: BigInt): Delegator 
     delegator.totalUnstakedTokens = BigInt.fromI32(0)
     delegator.createdAt = timestamp.toI32()
     delegator.totalRealizedRewards = BigDecimal.fromString('0')
+    delegator.totalRewards = BigDecimal.fromString('0')
     delegator.unreleasedReward = BigDecimal.fromString('0')
+    delegator.unreleasedPercent = BigDecimal.fromString('0')
     delegator.stakesCount = 0
     delegator.currentStaked = BigDecimal.fromString('0')
     delegator.save()
@@ -750,6 +752,8 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
       )
       // вычитаем старое значение неанрелиженных ревардов
       delegator.unreleasedReward = delegator.unreleasedReward.minus(delegatedStake.unreleasedReward)
+      delegator.totalRewards = delegator.totalRewards.minus(delegatedStake.unreleasedReward)
+
       let rewardHistoryEntity = DelegatorRewardHistoryEntity.load(id)
       if (rewardHistoryEntity == null) {
         rewardHistoryEntity = new DelegatorRewardHistoryEntity(
@@ -780,6 +784,14 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
       delegator.currentStaked = delegator.currentStaked.plus(delegatedStake.currentDelegationAmount)
       // добавляем новое значение неанрелиженных ревардов
       delegator.unreleasedReward = delegator.unreleasedReward.plus(delegatedStake.unreleasedReward)
+      delegator.totalRewards = delegator.totalRealizedRewards.plus(delegator.unreleasedReward)
+      if (!delegator.totalStakedTokens.isZero()) {
+        delegator.unreleasedPercent = delegator.unreleasedReward.div(
+          delegator.totalStakedTokens.toBigDecimal(),
+        )
+      } else {
+        delegator.unreleasedPercent = BigDecimal.fromString('0')
+      }
       delegator.save()
       if (rewardHistoryEntity.reward.gt(BigDecimal.fromString('0'))) {
         // save only non zero rewards

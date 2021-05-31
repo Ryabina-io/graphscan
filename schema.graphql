@@ -661,7 +661,8 @@ type Delegator @entity {
   "Total realized rewards on all delegated stakes. Realized rewards are added when undelegating and realizing a profit"
   totalRealizedRewards: BigDecimal!
   unreleasedReward: BigDecimal!
-
+  unreleasedPercent: BigDecimal!
+  totalRewards: BigDecimal!
   "lastCreatedDelegatedStake"
   lastDelegationAt: Int
 
