@@ -17,6 +17,7 @@ import {
   RewardCutHistoryEntity,
   DelegationPoolHistoryEntity,
   DelegatorRewardHistoryEntity,
+  IndexerDeployment,
 } from '../types/schema'
 import { ENS } from '../types/GNS/ENS'
 import { Controller } from '../types/Controller/Controller'
@@ -83,6 +84,7 @@ export function createOrLoadSubgraphDeployment(
     deployment.deniedAt = 0
     deployment.signaledReal = BigInt.fromI32(0)
     deployment.signalsCount = 0
+    deployment.indexersCount = 0
 
     deployment.save()
 
@@ -185,6 +187,18 @@ export function createOrLoadDelegator(id: string, timestamp: BigInt): Delegator 
   return delegator as Delegator
 }
 
+export function createOrLoadIntexerDeployment(
+  indexer: string,
+  deployment: string,
+): IndexerDeployment {
+  let id = joinID([indexer, deployment])
+  let indexerDeployment = IndexerDeployment.load(id)
+  if (indexerDeployment == null) {
+    indexerDeployment = new IndexerDeployment(id)
+    indexerDeployment.allocations = 0
+  }
+  return indexerDeployment as IndexerDeployment
+}
 export function createOrLoadDelegatedStake(
   delegator: string,
   indexer: string,

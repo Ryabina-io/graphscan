@@ -40,6 +40,7 @@ import {
   createOrLoadGraphAccount,
   updateAdvancedIndexerMetrics,
   createDelegatorRewardHistoryEntityFromIndexer,
+  createOrLoadIntexerDeployment,
 } from './helpers'
 
 export function handleDelegationParametersUpdated(event: DelegationParametersUpdated): void {
@@ -314,9 +315,15 @@ export function handleAllocationCreated(event: AllocationCreated): void {
   graphNetwork.totalTokensAllocated = graphNetwork.totalTokensAllocated.plus(event.params.tokens)
   graphNetwork.save()
 
+  let indexerDeployment = createOrLoadIntexerDeployment(indexerID, subgraphDeploymentID)
+  indexerDeployment.allocations = indexerDeployment.allocations + 1
+  indexerDeployment.save()
   // update subgraph deployment
   let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
   deployment.stakedTokens = deployment.stakedTokens.plus(event.params.tokens)
+  if (indexerDeployment.allocations == 1) {
+    deployment.indexersCount = deployment.indexersCount + 1
+  }
   deployment.save()
 
   // create allocation
@@ -441,7 +448,9 @@ export function handleAllocationClosed(event: AllocationClosed): void {
   indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
-
+  let indexerDeployment = createOrLoadIntexerDeployment(indexerID, allocation.subgraphDeployment)
+  indexerDeployment.allocations = indexerDeployment.allocations - 1
+  indexerDeployment.save()
   // update allocation
   allocation.poolClosedIn = event.params.epoch.toString()
   allocation.activeForIndexer = null
@@ -476,6 +485,9 @@ export function handleAllocationClosed(event: AllocationClosed): void {
   // it would be done in handleRebateClaimed
   let subgraphDeploymentID = event.params.subgraphDeploymentID.toHexString()
   let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
+  if (indexerDeployment.allocations == 0) {
+    deployment.indexersCount = deployment.indexersCount - 1
+  }
   deployment.stakedTokens = deployment.stakedTokens.minus(event.params.tokens)
   deployment.save()
 
