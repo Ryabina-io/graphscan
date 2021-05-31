@@ -414,6 +414,7 @@ type SubgraphDeployment @entity {
 
   "Number(s.versions[0].subgraph.signalledTokens + 'e-18') - Number(s.versions[0].subgraph.unsignalledTokens + 'e-18'),"
   signaledReal: BigInt!
+  signalsCount: Int!
 }
 
 # TODO - add when we have the ability to parse data sources

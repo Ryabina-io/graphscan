@@ -82,6 +82,7 @@ export function createOrLoadSubgraphDeployment(
     deployment.reserveRatio = 0
     deployment.deniedAt = 0
     deployment.signaledReal = BigInt.fromI32(0)
+    deployment.signalsCount = 0
 
     deployment.save()
 
@@ -265,8 +266,6 @@ export function createOrLoadSignal(curator: string, subgraphDeploymentID: string
     signal.lastSignalChange = 0
     signal.realizedRewards = BigInt.fromI32(0)
     signal.save()
-    let curatorEntity = Curator.load(curator)
-    curatorEntity.signalsCount = curatorEntity.signalsCount + 1
   }
   return signal as Signal
 }

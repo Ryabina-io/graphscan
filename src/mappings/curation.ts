@@ -35,11 +35,16 @@ export function handleSignalled(event: Signalled): void {
   curator.totalSignalledTokens = curator.totalSignalledTokens.plus(
     event.params.tokens.minus(event.params.curationTax),
   )
-  curator.save()
 
+  let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
   // Update signal
   let subgraphDeploymentID = event.params.subgraphDeploymentID.toHexString()
   let signal = createOrLoadSignal(id, subgraphDeploymentID)
+  if (signal.signalledTokens.isZero()) {
+    curator.signalsCount = curator.signalsCount + 1
+    deployment.signalsCount = deployment.signalsCount + 1
+  }
+  curator.save()
   signal.signalledTokens = signal.signalledTokens.plus(
     event.params.tokens.minus(event.params.curationTax),
   )
@@ -47,7 +52,6 @@ export function handleSignalled(event: Signalled): void {
   signal.save()
 
   // Update subgraph deployment
-  let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
   deployment.signalledTokens = deployment.signalledTokens.plus(
     event.params.tokens.minus(event.params.curationTax),
   )
@@ -111,6 +115,11 @@ export function handleBurned(event: Burned): void {
   let deployment = SubgraphDeployment.load(subgraphDeploymentID)
   deployment.signalledTokens = deployment.signalledTokens.minus(event.params.tokens)
   deployment.signalAmount = deployment.signalAmount.minus(event.params.signal)
+  if (signal.signal.isZero()) {
+    deployment.signalsCount = deployment.signalsCount - 1
+    curator.signalsCount = curator.signalsCount - 1
+  }
+  curator.save()
   deployment.save()
 
   // Update epoch - none
