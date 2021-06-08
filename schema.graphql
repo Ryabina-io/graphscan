@@ -569,6 +569,7 @@ type Allocation @entity {
   activeForIndexer: Indexer
   "Subgraph deployment that is being allocated to"
   subgraphDeployment: SubgraphDeployment!
+  subgraphDeploymentId: ID!
   "Tokens allocation in this allocation"
   allocatedTokens: BigInt!
   "Effective allocation that is realized upon closing"

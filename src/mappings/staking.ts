@@ -332,6 +332,7 @@ export function handleAllocationCreated(event: AllocationCreated): void {
   allocation.creator = event.transaction.from
   allocation.activeForIndexer = indexerID
   allocation.subgraphDeployment = subgraphDeploymentID
+  allocation.subgraphDeploymentId = subgraphDeploymentID
   allocation.allocatedTokens = event.params.tokens
   allocation.effectiveAllocation = BigInt.fromI32(0)
   allocation.createdAtEpoch = event.params.epoch.toI32()
