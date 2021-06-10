@@ -180,6 +180,16 @@ export function handleSubgraphPublished(event: SubgraphPublished): void {
     }
   }
   subgraphVersion.save()
+  let subgraphDeployment = SubgraphDeployment.load(subgraphVersion.subgraphDeployment)
+  // Not super robust, someone could deploy blank, then point a subgraph to here
+  // It is more appropriate to say this is the first name 'claimed' for the deployment
+  if (subgraphDeployment.originalName == null) {
+    subgraphDeployment.originalName = subgraph.displayName
+    subgraphDeployment.save()
+  }
+  subgraphDeployment.subgraphImg = subgraph.image
+  subgraphDeployment.subgraphId = event.params.subgraphNumber
+  subgraphDeployment.save()
 }
 /**
  * @dev handleSubgraphDeprecated
