@@ -768,6 +768,13 @@ type Curator @entity {
   totalNameSignalAverageCostBasis: BigDecimal!
   "totalNameSignalCostBasis / totalNameSignal"
   totalAverageCostBasisPerNameSignal: BigDecimal!
+
+  allCurrentGRTValue: BigDecimal!
+  PLGrt: BigDecimal!
+  unrealizedPLGrt: BigDecimal!
+  realizedPLGrt: BigDecimal!
+  lastSignaledAt: Int!
+  lastUnsignaledAt: Int!
 }
 
 """
