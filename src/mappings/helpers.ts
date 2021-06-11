@@ -310,6 +310,10 @@ export function createOrLoadNameSignal(
     nameSignal.realizedRewards = BigInt.fromI32(0)
     nameSignal.averageCostBasis = BigDecimal.fromString('0')
     nameSignal.averageCostBasisPerSignal = BigDecimal.fromString('0')
+    nameSignal.currentGRTValue = BigDecimal.fromString('0')
+    nameSignal.PLGrt = BigDecimal.fromString('0')
+    nameSignal.unrealizedPLGrt = BigDecimal.fromString('0')
+    nameSignal.realizedPLGrt = BigDecimal.fromString('0')
     nameSignal.save()
   }
   return nameSignal as NameSignal

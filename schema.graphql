@@ -835,6 +835,11 @@ type NameSignal @entity {
   averageCostBasis: BigDecimal! # note this is ONLY name signal. This is okay for the protocol for now
   "averageCostBasis / nameSignal"
   averageCostBasisPerSignal: BigDecimal!
+
+  currentGRTValue: BigDecimal!
+  PLGrt: BigDecimal!
+  unrealizedPLGrt: BigDecimal!
+  realizedPLGrt: BigDecimal!
 }
 
 """
