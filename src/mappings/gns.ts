@@ -33,6 +33,7 @@ import {
   joinID,
   createOrLoadNameSignal,
   updateDeploymentSignaledTokens,
+  updateAdvancedNSignalMetrics,
 } from './helpers'
 
 export function handleSetDefaultName(event: SetDefaultName): void {
@@ -282,6 +283,7 @@ export function handleNSignalMinted(event: NSignalMinted): void {
   nSignalTransaction.tokens = event.params.tokensDeposited
   nSignalTransaction.subgraph = subgraphID
   nSignalTransaction.save()
+  updateAdvancedNSignalMetrics(subgraph as Subgraph, event.address)
 }
 
 export function handleNSignalBurned(event: NSignalBurned): void {
@@ -346,6 +348,7 @@ export function handleNSignalBurned(event: NSignalBurned): void {
   nSignalTransaction.tokens = event.params.tokensReceived
   nSignalTransaction.subgraph = subgraphID
   nSignalTransaction.save()
+  updateAdvancedNSignalMetrics(subgraph as Subgraph, event.address)
 }
 
 export function handleNameSignalUpgrade(event: NameSignalUpgrade): void {
@@ -361,6 +364,7 @@ export function handleNameSignalUpgrade(event: NameSignalUpgrade): void {
   subgraph.signalledTokens = subgraph.signalledTokens.plus(event.params.tokensSignalled)
   subgraph.save()
   updateDeploymentSignaledTokens(subgraph as Subgraph)
+  updateAdvancedNSignalMetrics(subgraph as Subgraph, event.address)
 }
 
 // Only need to upgrade withdrawable tokens. Everything else handled from
@@ -397,4 +401,5 @@ export function handleGRTWithdrawn(event: GRTWithdrawn): void {
   let curator = Curator.load(event.params.nameCurator.toHexString())
   curator.totalWithdrawnTokens = curator.totalWithdrawnTokens.plus(event.params.withdrawnGRT)
   curator.save()
+  updateAdvancedNSignalMetrics(subgraph as Subgraph, event.address)
 }

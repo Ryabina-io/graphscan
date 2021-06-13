@@ -21,6 +21,7 @@ import {
 } from '../types/schema'
 import { ENS } from '../types/GNS/ENS'
 import { Controller } from '../types/Controller/Controller'
+import { GNS } from '../types/GNS/GNS'
 
 import { addresses } from '../../config/addresses'
 import { ethereum } from '@graphprotocol/graph-ts'
@@ -833,9 +834,19 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
   }
 }
 
-export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
+export function updateAdvancedNSignalMetrics(subgraph: Subgraph, gnsAddr: Address): void {
   // iterate over all subgraph curators
   let curatorsListStrings = subgraph.get('curatorsList').toBytesArray() as Address[]
+  let GNScontract = GNS.bind(gnsAddr)
+  let splitted = subgraph.id.split('-')
+  let subgraphAddress = splitted[0]
+  let subgraphNumberStr = splitted[1]
+  let subgraphNumber: BigInt = BigInt.fromI32(parseInt(subgraphNumberStr, 10) as i32)
+  log.error('subgraph: {} ; address: {} , number {}', [
+    subgraph.id,
+    subgraphAddress,
+    subgraphNumberStr,
+  ])
   for (let i = 0; i < curatorsListStrings.length; i++) {
     let curatorId = curatorsListStrings[i].toHexString()
     let nSignal = NameSignal.load(joinID([curatorId, subgraph.id]))
@@ -845,9 +856,13 @@ export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
       continue
     }
     curator.allCurrentGRTValue = curator.allCurrentGRTValue.minus(nSignal.currentGRTValue)
-    nSignal.currentGRTValue = subgraph.signalledTokens
-      .times(nSignal.nameSignal)
-      .div(subgraph.nameSignalAmount)
+    nSignal.currentGRTValue = GNScontract.nSignalToTokens(
+      Address.fromString(subgraphAddress),
+      subgraphNumber,
+      nSignal.nameSignal,
+    ).value1
     curator.allCurrentGRTValue = curator.allCurrentGRTValue.plus(nSignal.currentGRTValue)
+    nSignal.save()
+    curator.save()
   }
 }
