@@ -1,6 +1,6 @@
 specVersion: 0.0.2
-description: The Graph Network Smart Contracts on Ethereum
-repository: https://github.com/graphprotocol/contracts/graph-network-subgraph
+description: The Graph Network Smart Contracts on Ethereum for Graphscan.io
+repository: https://github.com/Ryabina-io/graphscan
 schema:
   file: ./schema.graphql
 dataSources:
