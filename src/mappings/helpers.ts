@@ -255,7 +255,7 @@ export function createOrLoadCurator(id: string, timestamp: BigInt): Curator {
     curator.totalNameSignal = BigDecimal.fromString('0')
     curator.totalAverageCostBasisPerNameSignal = BigDecimal.fromString('0')
     curator.signalsCount = 0
-    curator.allCurrentGRTValue = BigDecimal.fromString('0')
+    curator.allCurrentGRTValue = BigInt.fromI32(0)
     curator.PLGrt = BigDecimal.fromString('0')
     curator.unrealizedPLGrt = BigDecimal.fromString('0')
     curator.realizedPLGrt = BigDecimal.fromString('0')
@@ -311,7 +311,7 @@ export function createOrLoadNameSignal(
     nameSignal.realizedRewards = BigInt.fromI32(0)
     nameSignal.averageCostBasis = BigDecimal.fromString('0')
     nameSignal.averageCostBasisPerSignal = BigDecimal.fromString('0')
-    nameSignal.currentGRTValue = BigDecimal.fromString('0')
+    nameSignal.currentGRTValue = BigInt.fromI32(0)
     nameSignal.PLGrt = BigDecimal.fromString('0')
     nameSignal.unrealizedPLGrt = BigDecimal.fromString('0')
     nameSignal.realizedPLGrt = BigDecimal.fromString('0')
