@@ -770,7 +770,7 @@ type Curator @entity {
   "totalNameSignalCostBasis / totalNameSignal"
   totalAverageCostBasisPerNameSignal: BigDecimal!
 
-  allCurrentGRTValue: BigDecimal!
+  allCurrentGRTValue: BigInt!
   PLGrt: BigDecimal!
   unrealizedPLGrt: BigDecimal!
   realizedPLGrt: BigDecimal!
@@ -837,7 +837,7 @@ type NameSignal @entity {
   "averageCostBasis / nameSignal"
   averageCostBasisPerSignal: BigDecimal!
 
-  currentGRTValue: BigDecimal!
+  currentGRTValue: BigInt!
   PLGrt: BigDecimal!
   unrealizedPLGrt: BigDecimal!
   realizedPLGrt: BigDecimal!
