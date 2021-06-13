@@ -309,6 +309,7 @@ type Subgraph @entity {
   withdrawnTokens: BigInt!
   "Curators of this subgraph deployment"
   nameSignals: [NameSignal!]! @derivedFrom(field: "subgraph")
+  curatorsList: [Bytes!]!
 
   # Metadata from IPFS linked in GNS
   "Subgraph metadata"

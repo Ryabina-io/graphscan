@@ -51,6 +51,7 @@ export function createOrLoadSubgraph(
     subgraph.codeRepository = ''
     subgraph.website = ''
     subgraph.displayName = ''
+    subgraph.curatorsList = []
 
     subgraph.save()
 
@@ -315,6 +316,11 @@ export function createOrLoadNameSignal(
     nameSignal.unrealizedPLGrt = BigDecimal.fromString('0')
     nameSignal.realizedPLGrt = BigDecimal.fromString('0')
     nameSignal.save()
+    let subgraphEntity = Subgraph.load(subgraphID)
+    let newCuratorsList = subgraphEntity.curatorsList
+    newCuratorsList.push(Bytes.fromHexString(curator) as Bytes)
+    subgraphEntity.curatorsList = newCuratorsList
+    subgraphEntity.save()
   }
   return nameSignal as NameSignal
 }
