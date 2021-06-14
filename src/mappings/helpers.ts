@@ -18,6 +18,7 @@ import {
   DelegationPoolHistoryEntity,
   DelegatorRewardHistoryEntity,
   IndexerDeployment,
+  SignalsQueue,
 } from '../types/schema'
 import { ENS } from '../types/GNS/ENS'
 import { Controller } from '../types/Controller/Controller'
@@ -835,19 +836,27 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
   }
 }
 
-export function updateAdvancedNSignalMetrics(subgraph: Subgraph, gnsAddr: Address): void {
+export function queueSubgraphSignalsUpdate(subgraph: Subgraph): void {
+  // DARK MAGIC ZONE
+  let i = 0
+  // find first non empty slot for queue
+  while (SignalsQueue.load(i.toString()) != null) {
+    i++
+  }
+  // create queue entity in empty slot with subgraph
+  let queueEntity = new SignalsQueue(i.toString())
+  queueEntity.subgraph = subgraph.id
+  queueEntity.save()
+}
+export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
   // iterate over all subgraph curators
   let curatorsListStrings = subgraph.get('curatorsList').toBytesArray() as Address[]
+  let gnsAddr = GraphNetwork.load('1').gns as Address
   let GNScontract = GNS.bind(gnsAddr)
   let splitted = subgraph.id.split('-')
   let subgraphAddress = splitted[0]
   let subgraphNumberStr = splitted[1]
   let subgraphNumber: BigInt = BigInt.fromI32(parseInt(subgraphNumberStr, 10) as i32)
-  log.error('subgraph: {} ; address: {} , number {}', [
-    subgraph.id,
-    subgraphAddress,
-    subgraphNumberStr,
-  ])
   for (let i = 0; i < curatorsListStrings.length; i++) {
     let curatorId = curatorsListStrings[i].toHexString()
     let nSignal = NameSignal.load(joinID([curatorId, subgraph.id]))

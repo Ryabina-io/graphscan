@@ -50,6 +50,8 @@ dataSources:
         - SubgraphDeployment
         - GraphAccount
         - NameSignal
+        - Curator
+        - SignalsQueue
       abis:
         - name: GNS
           file: ./node_modules/@graphprotocol/contracts/dist/abis/GNS.json
@@ -76,6 +78,8 @@ dataSources:
           handler: handleNameSignalDisabled
         - event: GRTWithdrawn(indexed address,indexed uint256,indexed address,uint256,uint256)
           handler: handleGRTWithdrawn
+      blockHandlers:
+        - handler: handleBlock  
   - kind: ethereum/contract
     name: ServiceRegistry
     network: {{network}}

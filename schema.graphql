@@ -178,6 +178,15 @@ type GraphNetwork @entity {
 }
 
 """
+ZONE OF DARK MAGIC DONT USE IT OR U DIE
+"""
+type SignalsQueue @entity {
+  "ID is 0 - infinity"
+  id: ID!
+  subgraph: ID!
+}
+
+"""
 An account within the graph network. Contains metadata and all relevant data for this accounts
 delegating, curating, and indexing.
 """
