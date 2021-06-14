@@ -275,6 +275,7 @@ export function handleNSignalMinted(event: NSignalMinted): void {
       curator.totalNameSignal,
     )
   }
+  curator.lastSignaledAt = event.block.timestamp.toI32()
   curator.save()
 
   // Create n signal tx
@@ -353,6 +354,7 @@ export function handleNSignalBurned(event: NSignalBurned): void {
       curator.totalNameSignal,
     )
   }
+  curator.lastUnsignaledAt = event.block.timestamp.toI32()
   curator.save()
 
   // Create n signal tx
