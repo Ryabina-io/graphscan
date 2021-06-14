@@ -863,6 +863,22 @@ export function updateAdvancedNSignalMetrics(subgraph: Subgraph, gnsAddr: Addres
       nSignal.nameSignal,
     ).value1
     curator.allCurrentGRTValue = curator.allCurrentGRTValue.plus(nSignal.currentGRTValue)
+
+    curator.unrealizedPLGrt = curator.unrealizedPLGrt.minus(nSignal.unrealizedPLGrt)
+    nSignal.unrealizedPLGrt = nSignal.currentGRTValue
+      .toBigDecimal()
+      .minus(nSignal.nameSignal.toBigDecimal().times(nSignal.lastBuyInPrice))
+    curator.unrealizedPLGrt = curator.unrealizedPLGrt.plus(nSignal.unrealizedPLGrt)
+
+    curator.PLGrt = curator.PLGrt.minus(nSignal.PLGrt)
+    nSignal.PLGrt = nSignal.unsignalledTokens
+      .minus(nSignal.signalledTokens)
+      .plus(nSignal.currentGRTValue)
+      .toBigDecimal()
+    // OR
+    // nSignal.PLGrt = nSignal.unrealizedPLGrt.plus(nSignal.realizedPLGrt)
+    curator.PLGrt = curator.PLGrt.plus(nSignal.PLGrt)
+
     nSignal.save()
     curator.save()
   }
