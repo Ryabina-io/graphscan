@@ -316,6 +316,7 @@ export function createOrLoadNameSignal(
     nameSignal.PLGrt = BigDecimal.fromString('0')
     nameSignal.unrealizedPLGrt = BigDecimal.fromString('0')
     nameSignal.realizedPLGrt = BigDecimal.fromString('0')
+    nameSignal.lastBuyInPrice = BigDecimal.fromString('0')
     nameSignal.save()
     let subgraphEntity = Subgraph.load(subgraphID)
     let newCuratorsList = subgraphEntity.curatorsList

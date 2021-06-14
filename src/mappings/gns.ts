@@ -84,7 +84,7 @@ export function handleSubgraphMetadataUpdated(event: SubgraphMetadataUpdated): v
   let base58Hash = hexHash.toBase58()
   let metadata = ipfs.cat(base58Hash)
   subgraph.metadataHash = event.params.subgraphMetadata
-  let image = ""
+  let image = ''
   if (metadata !== null) {
     let tryData = json.try_fromBytes(metadata as Bytes)
     if (tryData.isOk) {
@@ -237,6 +237,13 @@ export function handleNSignalMinted(event: NSignalMinted): void {
     subgraphID,
     event.block.timestamp,
   )
+
+  // update lastBuyInPrice
+  nameSignal.lastBuyInPrice = nameSignal.lastBuyInPrice
+    .times(nameSignal.nameSignal.toBigDecimal())
+    .plus(event.params.tokensDeposited.toBigDecimal())
+    .div(nameSignal.nameSignal.toBigDecimal().plus(event.params.nSignalCreated.toBigDecimal()))
+  // update lastBuyInPrice
   nameSignal.nameSignal = nameSignal.nameSignal.plus(event.params.nSignalCreated)
   nameSignal.signalledTokens = nameSignal.signalledTokens.plus(event.params.tokensDeposited)
   nameSignal.lastNameSignalChange = event.block.timestamp.toI32()
@@ -303,7 +310,21 @@ export function handleNSignalBurned(event: NSignalBurned): void {
     subgraphID,
     event.block.timestamp,
   )
+  let curator = createOrLoadCurator(event.params.nameCurator.toHexString(), event.block.timestamp)
 
+  // calculate releasedP/L
+  curator.realizedPLGrt = curator.realizedPLGrt.minus(nameSignal.realizedPLGrt)
+  nameSignal.realizedPLGrt = event.params.nSignalBurnt
+    .toBigDecimal()
+    .times(
+      event.params.tokensReceived
+        .toBigDecimal()
+        .div(event.params.nSignalBurnt.toBigDecimal())
+        .minus(nameSignal.lastBuyInPrice),
+    )
+
+  curator.realizedPLGrt = curator.realizedPLGrt.plus(nameSignal.realizedPLGrt)
+  // calculate releasedP/L
   nameSignal.nameSignal = nameSignal.nameSignal.minus(event.params.nSignalBurnt)
   nameSignal.unsignalledTokens = nameSignal.unsignalledTokens.plus(event.params.tokensReceived)
   nameSignal.lastNameSignalChange = event.block.timestamp.toI32()
@@ -320,7 +341,6 @@ export function handleNSignalBurned(event: NSignalBurned): void {
   nameSignal.save()
 
   // update curator
-  let curator = createOrLoadCurator(event.params.nameCurator.toHexString(), event.block.timestamp)
   curator.totalNameUnsignalledTokens = curator.totalNameUnsignalledTokens.plus(
     event.params.tokensReceived,
   )

@@ -841,6 +841,8 @@ type NameSignal @entity {
   PLGrt: BigDecimal!
   unrealizedPLGrt: BigDecimal!
   realizedPLGrt: BigDecimal!
+
+  lastBuyInPrice: BigDecimal!
 }
 
 """
