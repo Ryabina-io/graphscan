@@ -233,6 +233,9 @@ export function createOrLoadDelegatedStake(
     indexerEntity.delegatorsCount = indexerEntity.delegatorsCount + 1
     indexerEntity.delegatorsList = newDelegatorsList
     indexerEntity.save()
+    let delegatorEntity = Delegator.load(delegator)
+    delegatorEntity.stakesCount = delegatorEntity.stakesCount + 1
+    delegatorEntity.save()
   }
   return delegatedStake as DelegatedStake
 }

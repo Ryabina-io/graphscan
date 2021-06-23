@@ -208,8 +208,6 @@ export function handleStakeDelegated(event: StakeDelegated): void {
     if (delegatedStake.shareAmount.isZero()) {
       // обновляем createdAt если делегация от нулевой стала ненулевой
       delegatedStake.createdAt = event.block.timestamp.toI32()
-      // обновляем в таком же случае stakesCount
-      delegator.stakesCount = delegator.stakesCount + 1
     }
   }
   delegator.save()
@@ -279,12 +277,6 @@ export function handleStakeDelegatedWithdrawn(event: StakeDelegatedWithdrawn): v
   delegatedStake.lockedTokens = BigInt.fromI32(0)
   delegatedStake.lockedUntil = 0
   delegatedStake.save()
-  // update delegator
-  if (delegatedStake.shareAmount.isZero()) {
-    let delegator = Delegator.load(delegatorID)
-    delegator.stakesCount = delegator.stakesCount - 1
-    delegator.save()
-  }
 }
 
 /**
