@@ -220,7 +220,7 @@ export function handleStakeDelegated(event: StakeDelegated): void {
   graphNetwork.totalDelegatedTokens = graphNetwork.totalDelegatedTokens.plus(event.params.tokens)
   graphNetwork.save()
 
-  createDelegatorRewardHistoryEntityFromIndexer(indexer, event)
+  createDelegatorRewardHistoryEntityFromIndexer(indexerID, event)
 }
 
 export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
@@ -266,7 +266,7 @@ export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalDelegatedTokens = graphNetwork.totalDelegatedTokens.minus(event.params.tokens)
   graphNetwork.save()
-  createDelegatorRewardHistoryEntityFromIndexer(indexer as Indexer, event)
+  createDelegatorRewardHistoryEntityFromIndexer(indexerID, event)
 }
 
 export function handleStakeDelegatedWithdrawn(event: StakeDelegatedWithdrawn): void {
@@ -552,7 +552,7 @@ export function handleRebateClaimed(event: RebateClaimed): void {
     event.params.delegationFees.plus(event.params.tokens),
   )
   graphNetwork.save()
-  createDelegatorRewardHistoryEntityFromIndexer(indexer as Indexer, event)
+  createDelegatorRewardHistoryEntityFromIndexer(indexerID, event)
 }
 
 /**

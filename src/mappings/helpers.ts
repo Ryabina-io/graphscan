@@ -770,10 +770,11 @@ function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.Event):
 }
 
 export function createDelegatorRewardHistoryEntityFromIndexer(
-  indexer: Indexer,
+  indexerId: string,
   event: ethereum.Event,
 ): void {
   let graphNetwork = GraphNetwork.load('1')
+  let indexer = Indexer.load(indexerId)
   let delegatorsListStrings = indexer.get('delegatorsList').toBytesArray() as Address[]
   for (let i = 0; i < delegatorsListStrings.length; i++) {
     let delegatorStakeid = delegatorsListStrings[i]

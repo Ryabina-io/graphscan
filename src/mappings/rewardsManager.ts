@@ -84,7 +84,7 @@ export function handleRewardsAssigned(event: RewardsAssigned): void {
     delegatorIndexingRewards,
   )
   graphNetwork.save()
-  createDelegatorRewardHistoryEntityFromIndexer(indexer as Indexer, event)
+  createDelegatorRewardHistoryEntityFromIndexer(indexerID, event)
 }
 
 /**
