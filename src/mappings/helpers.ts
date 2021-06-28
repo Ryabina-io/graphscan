@@ -866,11 +866,15 @@ export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
     let nSignal = NameSignal.load(joinID([curatorId, subgraph.id]))
     let curator = Curator.load(curatorId)
     curator.allCurrentGRTValue = curator.allCurrentGRTValue.minus(nSignal.currentGRTValue)
-    nSignal.currentGRTValue = GNScontract.nSignalToTokens(
-      Address.fromString(subgraphAddress),
-      subgraphNumber,
-      nSignal.nameSignal,
-    ).value1
+    if (nSignal.nameSignal.isZero()) {
+      nSignal.currentGRTValue = BigInt.fromI32(0)
+    } else {
+      nSignal.currentGRTValue = GNScontract.nSignalToTokens(
+        Address.fromString(subgraphAddress),
+        subgraphNumber,
+        nSignal.nameSignal,
+      ).value1
+    }
     curator.allCurrentGRTValue = curator.allCurrentGRTValue.plus(nSignal.currentGRTValue)
 
     curator.unrealizedPLGrt = curator.unrealizedPLGrt.minus(nSignal.unrealizedPLGrt)
