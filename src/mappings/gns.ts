@@ -230,6 +230,7 @@ export function handleNSignalMinted(event: NSignalMinted): void {
   let subgraphNumber = event.params.subgraphNumber.toString()
   let subgraphID = joinID([graphAccount, subgraphNumber])
   let subgraph = Subgraph.load(subgraphID)
+  let curator = createOrLoadCurator(event.params.nameCurator.toHexString(), event.block.timestamp)
   subgraph.nameSignalAmount = subgraph.nameSignalAmount.plus(event.params.nSignalCreated)
   subgraph.signalledTokens = subgraph.signalledTokens.plus(event.params.tokensDeposited)
   subgraph.save()
@@ -239,7 +240,9 @@ export function handleNSignalMinted(event: NSignalMinted): void {
     subgraphID,
     event.block.timestamp,
   )
-
+  if (nameSignal.nameSignal.isZero()) {
+    curator.signalsCount = curator.signalsCount + 1
+  }
   // update lastBuyInPrice
   nameSignal.lastBuyInPrice = nameSignal.lastBuyInPrice
     .times(nameSignal.nameSignal.toBigDecimal())
@@ -262,7 +265,6 @@ export function handleNSignalMinted(event: NSignalMinted): void {
   nameSignal.save()
 
   // Update the curator
-  let curator = createOrLoadCurator(event.params.nameCurator.toHexString(), event.block.timestamp)
   curator.totalNameSignalledTokens = curator.totalNameSignalledTokens.plus(
     event.params.tokensDeposited,
   )
@@ -331,7 +333,9 @@ export function handleNSignalBurned(event: NSignalBurned): void {
   nameSignal.nameSignal = nameSignal.nameSignal.minus(event.params.nSignalBurnt)
   nameSignal.unsignalledTokens = nameSignal.unsignalledTokens.plus(event.params.tokensReceived)
   nameSignal.lastNameSignalChange = event.block.timestamp.toI32()
-
+  if (nameSignal.nameSignal.isZero()) {
+    curator.signalsCount = curator.signalsCount - 1
+  }
   // update acb to reflect new name signal balance
   let previousACB = nameSignal.averageCostBasis
   nameSignal.averageCostBasis = nameSignal.nameSignal

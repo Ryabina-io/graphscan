@@ -41,7 +41,6 @@ export function handleSignalled(event: Signalled): void {
   let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
   let signal = createOrLoadSignal(id, subgraphDeploymentID)
   if (signal.signalledTokens.isZero()) {
-    curator.signalsCount = curator.signalsCount + 1
     deployment.signalsCount = deployment.signalsCount + 1
   }
   curator.save()
@@ -117,7 +116,6 @@ export function handleBurned(event: Burned): void {
   deployment.signalAmount = deployment.signalAmount.minus(event.params.signal)
   if (signal.signal.isZero()) {
     deployment.signalsCount = deployment.signalsCount - 1
-    curator.signalsCount = curator.signalsCount - 1
   }
   curator.save()
   deployment.save()
