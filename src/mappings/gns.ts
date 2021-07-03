@@ -242,6 +242,7 @@ export function handleNSignalMinted(event: NSignalMinted): void {
   )
   if (nameSignal.nameSignal.isZero()) {
     curator.signalsCount = curator.signalsCount + 1
+    subgraph.signalsCount = subgraph.signalsCount + 1
   }
   // update lastBuyInPrice
   nameSignal.lastBuyInPrice = nameSignal.lastBuyInPrice
@@ -335,6 +336,7 @@ export function handleNSignalBurned(event: NSignalBurned): void {
   nameSignal.lastNameSignalChange = event.block.timestamp.toI32()
   if (nameSignal.nameSignal.isZero()) {
     curator.signalsCount = curator.signalsCount - 1
+    subgraph.signalsCount = subgraph.signalsCount - 1
   }
   // update acb to reflect new name signal balance
   let previousACB = nameSignal.averageCostBasis
@@ -429,6 +431,7 @@ export function handleGRTWithdrawn(event: GRTWithdrawn): void {
   let curator = Curator.load(event.params.nameCurator.toHexString())
   if (nameSignal.nameSignal.isZero()) {
     curator.signalsCount = curator.signalsCount - 1
+    subgraph.signalsCount = subgraph.signalsCount - 1
   }
   curator.totalWithdrawnTokens = curator.totalWithdrawnTokens.plus(event.params.withdrawnGRT)
   curator.save()

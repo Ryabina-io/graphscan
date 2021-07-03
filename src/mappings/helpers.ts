@@ -54,6 +54,7 @@ export function createOrLoadSubgraph(
     subgraph.website = ''
     subgraph.displayName = ''
     subgraph.curatorsList = []
+    subgraph.signalsCount = 0
 
     subgraph.save()
 
@@ -86,7 +87,6 @@ export function createOrLoadSubgraphDeployment(
     deployment.reserveRatio = 0
     deployment.deniedAt = 0
     deployment.signaledReal = BigInt.fromI32(0)
-    deployment.signalsCount = 0
     deployment.indexersCount = 0
     deployment.allocationsCount = 0
     deployment.save()

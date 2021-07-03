@@ -333,6 +333,7 @@ type Subgraph @entity {
   website: String!
   "Display name"
   displayName: String!
+  signalsCount: Int!
 }
 
 """
@@ -424,7 +425,6 @@ type SubgraphDeployment @entity {
 
   "Number(s.versions[0].subgraph.signalledTokens + 'e-18') - Number(s.versions[0].subgraph.unsignalledTokens + 'e-18'),"
   signaledReal: BigInt!
-  signalsCount: Int!
   indexersCount: Int!
   allocationsCount: Int!
 }
