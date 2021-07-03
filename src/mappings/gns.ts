@@ -442,5 +442,6 @@ export function handleBlock(block: ethereum.Block): void {
   while ((queueEntity = SignalsQueue.load(i.toString())) != null) {
     updateAdvancedNSignalMetrics(Subgraph.load(queueEntity.subgraph) as Subgraph)
     store.remove('SignalsQueue', i.toString())
+    i++
   }
 }
