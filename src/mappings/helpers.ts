@@ -176,6 +176,7 @@ export function createOrLoadDelegator(id: string, timestamp: BigInt): Delegator 
     delegator.unreleasedReward = BigDecimal.fromString('0')
     delegator.unreleasedPercent = BigDecimal.fromString('0')
     delegator.stakesCount = 0
+    delegator.activeStakesCount = 0
     delegator.currentStaked = BigDecimal.fromString('0')
     delegator.save()
 

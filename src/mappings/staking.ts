@@ -193,6 +193,11 @@ export function handleStakeDelegated(event: StakeDelegated): void {
     indexerID,
     event.block.timestamp.toI32(),
   )
+  if (delegatedStake.stakedTokens.isZero()) {
+    delegator = createOrLoadDelegator(delegatorID, event.block.timestamp)
+    delegator.activeStakesCount = delegator.activeStakesCount + 1
+    delegator.save()
+  }
   if (!zeroShares) {
     let previousExchangeRate = delegatedStake.personalExchangeRate
     let previousShares = delegatedStake.shareAmount
@@ -259,6 +264,10 @@ export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
   delegator.totalUnstakedTokens = delegator.totalUnstakedTokens.plus(event.params.tokens)
   delegator.totalRealizedRewards = delegator.totalRealizedRewards.plus(realizedRewards)
   delegator.lastUnDelegationAt = event.block.timestamp.toI32()
+  if (delegatedStake.stakedTokens.isZero()) {
+    delegator.activeStakesCount = delegator.activeStakesCount - 1
+    delegator.save()
+  }
   delegator.save()
 
   // upgrade graph network
