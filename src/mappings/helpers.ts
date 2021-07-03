@@ -88,7 +88,7 @@ export function createOrLoadSubgraphDeployment(
     deployment.signaledReal = BigInt.fromI32(0)
     deployment.signalsCount = 0
     deployment.indexersCount = 0
-
+    deployment.allocationsCount = 0
     deployment.save()
 
     let graphNetwork = GraphNetwork.load('1')

@@ -426,6 +426,7 @@ type SubgraphDeployment @entity {
   signaledReal: BigInt!
   signalsCount: Int!
   indexersCount: Int!
+  allocationsCount: Int!
 }
 
 # TODO - add when we have the ability to parse data sources
