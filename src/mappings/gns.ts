@@ -427,6 +427,9 @@ export function handleGRTWithdrawn(event: GRTWithdrawn): void {
   nameSignal.save()
 
   let curator = Curator.load(event.params.nameCurator.toHexString())
+  if (nameSignal.nameSignal.isZero()) {
+    curator.signalsCount = curator.signalsCount - 1
+  }
   curator.totalWithdrawnTokens = curator.totalWithdrawnTokens.plus(event.params.withdrawnGRT)
   curator.save()
   queueSubgraphSignalsUpdate(subgraph as Subgraph)
