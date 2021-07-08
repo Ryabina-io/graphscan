@@ -870,11 +870,12 @@ export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
     if (nSignal.nameSignal.isZero()) {
       nSignal.currentGRTValue = BigInt.fromI32(0)
     } else {
-      nSignal.currentGRTValue = GNScontract.nSignalToTokens(
+      let call = GNScontract.try_nSignalToTokens(
         Address.fromString(subgraphAddress),
         subgraphNumber,
         nSignal.nameSignal,
-      ).value1
+      )
+      nSignal.currentGRTValue = call.reverted ? BigInt.fromI32(0) : call.value.value1
     }
     curator.allCurrentGRTValue = curator.allCurrentGRTValue.plus(nSignal.currentGRTValue)
 
