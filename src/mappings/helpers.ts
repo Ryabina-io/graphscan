@@ -148,7 +148,7 @@ export function createOrLoadIndexer(id: string, timestamp: BigInt): Indexer {
     indexer.stakingEfficiency = BigDecimal.fromString('0')
     indexer.delegatorsList = []
 
-    let graphAccount = GraphAccount.load(id)
+    let graphAccount = createOrLoadGraphAccount(id, Address.fromString(id), timestamp)
     graphAccount.indexer = id
     graphAccount.save()
 
@@ -180,7 +180,7 @@ export function createOrLoadDelegator(id: string, timestamp: BigInt): Delegator 
     delegator.currentStaked = BigDecimal.fromString('0')
     delegator.save()
 
-    let graphAccount = GraphAccount.load(id)
+    let graphAccount = createOrLoadGraphAccount(id, Address.fromString(id), timestamp)
     graphAccount.delegator = id
     graphAccount.save()
 
@@ -269,7 +269,7 @@ export function createOrLoadCurator(id: string, timestamp: BigInt): Curator {
     curator.lastUnsignaledAt = 0
     curator.save()
 
-    let graphAccount = GraphAccount.load(id)
+    let graphAccount = createOrLoadGraphAccount(id, Address.fromString(id), timestamp)
     graphAccount.curator = id
     graphAccount.save()
 
@@ -632,7 +632,11 @@ function createGraphAccountName(
     // If so, remove the old owner, and set the new one
   } else if (graphAccountName.graphAccount != graphAccount) {
     // Set defaultDisplayName to null if they lost ownership of this name
-    let oldGraphAccount = GraphAccount.load(graphAccountName.graphAccount)
+    let oldGraphAccount = createOrLoadGraphAccount(
+      graphAccountName.graphAccount,
+      Address.fromString(graphAccountName.graphAccount),
+      BigInt.fromI32(0),
+    )
     oldGraphAccount.defaultDisplayName = null
     oldGraphAccount.save()
 
