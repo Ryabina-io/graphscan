@@ -635,6 +635,9 @@ type Allocation @entity {
   queryFeeCut: Int
   "sets on closing"
   queryFeeEffectiveCut: BigInt
+
+  "sets on closing"
+  totalDelegatedTokensOnClose: BigInt
 }
 
 enum AllocationStatus {

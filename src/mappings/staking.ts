@@ -464,6 +464,7 @@ export function handleAllocationClosed(event: AllocationClosed): void {
   allocation.status = 'Closed'
   allocation.statusInt = 1
   allocation.poi = event.params.poi
+  allocation.totalDelegatedTokensOnClose = indexer.delegatedTokens
   allocation.save()
 
   // update epoch - We do it here to have more epochs created, instead of seeing none created
