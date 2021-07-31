@@ -200,29 +200,29 @@ dataSources:
           handler: handleParameterUpdated
         # - event: ImplementationUpdated(address,address)
         #   handler: handleImplementationUpdated
-  - kind: ethereum/contract
-    name: GraphToken
-    network: {{network}}
-    source:
-      address: '{{graphToken}}'
-      abi: GraphToken
-      startBlock: {{blockNumber}}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.4
-      language: wasm/assemblyscript
-      file: ./src/mappings/graphToken.ts
-      entities:
-        - GraphAccount
-        - GraphNetwork
-      abis:
-        - name: GraphToken
-          file: ./node_modules/@graphprotocol/contracts/dist/abis/GraphToken.json
-      eventHandlers:
-        - event: Transfer(indexed address,indexed address,uint256)
-          handler: handleTransfer
-        - event: Approval(indexed address,indexed address,uint256)
-          handler: handleApproval
+  # - kind: ethereum/contract
+  #   name: GraphToken
+  #   network: {{network}}
+  #   source:
+  #     address: '{{graphToken}}'
+  #     abi: GraphToken
+  #     startBlock: {{blockNumber}}
+  #   mapping:
+  #     kind: ethereum/events
+  #     apiVersion: 0.0.4
+  #     language: wasm/assemblyscript
+  #     file: ./src/mappings/graphToken.ts
+  #     entities:
+  #       - GraphAccount
+  #       - GraphNetwork
+  #     abis:
+  #       - name: GraphToken
+  #         file: ./node_modules/@graphprotocol/contracts/dist/abis/GraphToken.json
+  #     eventHandlers:
+  #       - event: Transfer(indexed address,indexed address,uint256)
+  #         handler: handleTransfer
+  #       - event: Approval(indexed address,indexed address,uint256)
+  #         handler: handleApproval
   - kind: ethereum/contract
     name: EthereumDIDRegistry
     network: {{network}}
