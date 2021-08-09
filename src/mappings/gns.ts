@@ -24,6 +24,8 @@ import {
   GraphAccountName,
   SubgraphDeployment,
   SignalsQueue,
+  Delegator,
+  GraphAccount,
 } from '../types/schema'
 
 import { jsonToString, zeroBD } from './utils'
@@ -70,13 +72,56 @@ export function handleSetDefaultName(event: SetDefaultName): void {
 
     // And if the GraphAccount changes default name, we should change it on the indexer too.
     // Indexer also has a defaultDisplayName because it helps with filtering.
-    let indexer = Indexer.load(event.params.graphAccount.toHexString())
+    let userAddress = event.params.graphAccount.toHexString()
+
+    let indexer = Indexer.load(userAddress)
     if (indexer != null) {
       indexer.defaultDisplayName = graphAccount.defaultDisplayName
       indexer.save()
     }
+
+    let curator = Curator.load(userAddress)
+    if (curator != null) {
+      curator.defaultDisplayName = graphAccount.defaultDisplayName
+      curator.save()
+    }
+
+    let delegator = Delegator.load(userAddress)
+    if (delegator != null) {
+      delegator.defaultDisplayName = graphAccount.defaultDisplayName
+      delegator.save()
+    }
+    addDefaultNameTokenLockWallets(graphAccount, graphAccount.defaultDisplayName)
   }
   graphAccount.save()
+}
+
+// Add in default names to a graph accounts token lock wallets
+function addDefaultNameTokenLockWallets(graphAccount: GraphAccount, name: string): void {
+  let tlws = graphAccount.tokenLockWallets
+  for (let i = 0; i < tlws.length; i++) {
+    let tlw = GraphAccount.load(tlws[i])
+    tlw.defaultDisplayName = name
+    tlw.save()
+
+    let indexer = Indexer.load(tlw.id)
+    if (indexer != null) {
+      indexer.defaultDisplayName = tlw.defaultDisplayName
+      indexer.save()
+    }
+
+    let curator = Curator.load(tlw.id)
+    if (curator != null) {
+      curator.defaultDisplayName = graphAccount.defaultDisplayName
+      curator.save()
+    }
+
+    let delegator = Delegator.load(tlw.id)
+    if (delegator != null) {
+      delegator.defaultDisplayName = graphAccount.defaultDisplayName
+      delegator.save()
+    }
+  }
 }
 
 export function handleSubgraphMetadataUpdated(event: SubgraphMetadataUpdated): void {
@@ -457,7 +502,7 @@ export function handleBlock(block: ethereum.Block): void {
  * - updates all parameters of GNS, depending on string passed. We then can
  *   call the contract directly to get the updated value
  */
- export function handleParameterUpdated(event: ParameterUpdated): void {
+export function handleParameterUpdated(event: ParameterUpdated): void {
   let parameter = event.params.param
   let graphNetwork = GraphNetwork.load('1')
   let gns = GNS.bind(event.address)
