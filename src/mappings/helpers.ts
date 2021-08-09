@@ -485,6 +485,7 @@ export function createOrLoadGraphNetwork(
     graphNetwork.defaultReserveRatio = 0
     graphNetwork.minimumCurationDeposit = BigInt.fromI32(0)
     graphNetwork.curationTaxPercentage = 0
+    graphNetwork.ownerTaxPercentage = 0
 
     graphNetwork.totalTokensSignalled = BigInt.fromI32(0)
 
