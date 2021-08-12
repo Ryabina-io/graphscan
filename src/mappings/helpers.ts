@@ -54,7 +54,7 @@ export function createOrLoadSubgraph(
     subgraph.website = ''
     subgraph.displayName = ''
     subgraph.curatorsList = []
-    subgraph.signalsCount = 0
+    subgraph.nameSignalsCount = 0
 
     subgraph.save()
 
@@ -260,7 +260,7 @@ export function createOrLoadCurator(id: string, timestamp: BigInt): Curator {
     curator.totalNameSignalAverageCostBasis = BigDecimal.fromString('0')
     curator.totalNameSignal = BigDecimal.fromString('0')
     curator.totalAverageCostBasisPerNameSignal = BigDecimal.fromString('0')
-    curator.signalsCount = 0
+    curator.nameSignalsCount = 0
     curator.allCurrentGRTValue = BigInt.fromI32(0)
     curator.PLGrt = BigDecimal.fromString('0')
     curator.unrealizedPLGrt = BigDecimal.fromString('0')
@@ -902,4 +902,8 @@ export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
     nSignal.save()
     curator.save()
   }
+}
+
+export function updateAdvancedSignalMetrics(subgraphDeployment: SubgraphDeployment): void {
+
 }

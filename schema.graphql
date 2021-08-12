@@ -337,7 +337,7 @@ type Subgraph @entity {
   website: String!
   "Display name"
   displayName: String!
-  signalsCount: Int!
+  nameSignalsCount: Int!
 }
 
 """
@@ -767,7 +767,7 @@ type Curator @entity {
   "Default display name is the current default name. Used for filtered queries"
   defaultDisplayName: String
 
-  signalsCount: Int!
+  nameSignalsCount: Int!
   "CUMULATIVE tokens signalled on all names"
   totalNameSignalledTokens: BigInt!
   "CUMULATIVE tokens unsignalled on all names"
@@ -825,6 +825,16 @@ type Signal @entity {
   # unrealized gains for their current balance, based on the time since the last exit/entry of the curve
   "Summation of realized rewards from before the last time the curator entered the curation curve"
   realizedRewards: BigInt!
+
+  currentGRTValue: BigInt!
+  PLGrt: BigDecimal!
+  unrealizedPLGrt: BigDecimal!
+  realizedPLGrt: BigDecimal!
+
+  lastBuyInPrice: BigDecimal!
+
+  lastSignaledAt: Int!
+  lastUnsignaledAt: Int!
 }
 
 """
