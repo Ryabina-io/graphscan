@@ -23,9 +23,10 @@ import {
   GraphNetwork,
   GraphAccountName,
   SubgraphDeployment,
-  SignalsQueue,
   Delegator,
   GraphAccount,
+  SubgraphSignalsQueue,
+  DeploymentSignalsQueue,
 } from '../types/schema'
 
 import { jsonToString, zeroBD } from './utils'
@@ -41,6 +42,7 @@ import {
   updateDeploymentSignaledTokens,
   queueSubgraphSignalsUpdate,
   updateAdvancedNSignalMetrics,
+  updateAdvancedSignalMetrics,
 } from './helpers'
 
 export function handleSetDefaultName(event: SetDefaultName): void {
@@ -488,11 +490,20 @@ export function handleGRTWithdrawn(event: GRTWithdrawn): void {
 
 export function handleBlock(block: ethereum.Block): void {
   // DARK MAGIC ZONE
-  let queueEntity: SignalsQueue | null
+  let queueEntity: SubgraphSignalsQueue | null
   let i = 0
-  while ((queueEntity = SignalsQueue.load(i.toString())) != null) {
+  while ((queueEntity = SubgraphSignalsQueue.load(i.toString())) != null) {
     updateAdvancedNSignalMetrics(Subgraph.load(queueEntity.subgraph) as Subgraph)
-    store.remove('SignalsQueue', i.toString())
+    store.remove('SubgraphSignalsQueue', i.toString())
+    i++
+  }
+  let queueEntityDeployment: DeploymentSignalsQueue | null
+  i = 0
+  while ((queueEntityDeployment = DeploymentSignalsQueue.load(i.toString())) != null) {
+    updateAdvancedSignalMetrics(
+      SubgraphDeployment.load(queueEntityDeployment.subgraphDeployment) as SubgraphDeployment,
+    )
+    store.remove('DeploymentSignalsQueue', i.toString())
     i++
   }
 }

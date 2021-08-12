@@ -20,6 +20,7 @@ import {
   createOrLoadCurator,
   createOrLoadEpoch,
   joinID,
+  queueDeploymentSignalsUpdate,
 } from './helpers'
 
 /**
@@ -84,6 +85,7 @@ export function handleSignalled(event: Signalled): void {
   signalTransaction.withdrawalFees = BigInt.fromI32(0)
   signalTransaction.subgraphDeployment = event.params.subgraphDeploymentID.toHexString()
   signalTransaction.save()
+  queueDeploymentSignalsUpdate(deployment as SubgraphDeployment)
 }
 /**
  * @dev handleRedeemed
@@ -134,6 +136,7 @@ export function handleBurned(event: Burned): void {
   signalTransaction.withdrawalFees = BigInt.fromI32(0)
   signalTransaction.subgraphDeployment = event.params.subgraphDeploymentID.toHexString()
   signalTransaction.save()
+  queueDeploymentSignalsUpdate(deployment as SubgraphDeployment)
 }
 
 /**

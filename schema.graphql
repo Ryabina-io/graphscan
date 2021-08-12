@@ -181,7 +181,16 @@ type GraphNetwork @entity {
 """
 ZONE OF DARK MAGIC DONT USE IT OR U DIE
 """
-type SignalsQueue @entity {
+type DeploymentSignalsQueue @entity {
+  "ID is 0 - infinity"
+  id: ID!
+  subgraphDeployment: ID!
+}
+
+"""
+ZONE OF DARK MAGIC DONT USE IT OR U DIE
+"""
+type SubgraphSignalsQueue @entity {
   "ID is 0 - infinity"
   id: ID!
   subgraph: ID!
@@ -431,6 +440,7 @@ type SubgraphDeployment @entity {
   signaledReal: BigInt!
   indexersCount: Int!
   allocationsCount: Int!
+  curatorsList: [Bytes!]!
 }
 
 # TODO - add when we have the ability to parse data sources
@@ -832,9 +842,6 @@ type Signal @entity {
   realizedPLGrt: BigDecimal!
 
   lastBuyInPrice: BigDecimal!
-
-  lastSignaledAt: Int!
-  lastUnsignaledAt: Int!
 }
 
 """

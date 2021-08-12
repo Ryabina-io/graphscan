@@ -18,11 +18,13 @@ import {
   DelegationPoolHistoryEntity,
   DelegatorRewardHistoryEntity,
   IndexerDeployment,
-  SignalsQueue,
+  SubgraphSignalsQueue,
+  DeploymentSignalsQueue
 } from '../types/schema'
 import { ENS } from '../types/GNS/ENS'
 import { Controller } from '../types/Controller/Controller'
 import { GNS } from '../types/GNS/GNS'
+import { Curation } from '../types/Curation/Curation'
 
 import { addresses } from '../../config/addresses'
 import { ethereum } from '@graphprotocol/graph-ts'
@@ -89,6 +91,7 @@ export function createOrLoadSubgraphDeployment(
     deployment.signaledReal = BigInt.fromI32(0)
     deployment.indexersCount = 0
     deployment.allocationsCount = 0
+    deployment.curatorsList = []
     deployment.save()
 
     let graphNetwork = GraphNetwork.load('1')
@@ -292,7 +295,17 @@ export function createOrLoadSignal(curator: string, subgraphDeploymentID: string
     signal.signal = BigInt.fromI32(0)
     signal.lastSignalChange = 0
     signal.realizedRewards = BigInt.fromI32(0)
+    signal.currentGRTValue = BigInt.fromI32(0)
+    signal.PLGrt = BigDecimal.fromString('0')
+    signal.unrealizedPLGrt = BigDecimal.fromString('0')
+    signal.realizedPLGrt = BigDecimal.fromString('0')
+    signal.lastBuyInPrice = BigDecimal.fromString('0')
     signal.save()
+    let deploymentEntity = SubgraphDeployment.load(subgraphDeploymentID)
+    let newCuratorsList = deploymentEntity.curatorsList
+    newCuratorsList.push(Bytes.fromHexString(curator) as Bytes)
+    deploymentEntity.curatorsList = newCuratorsList
+    deploymentEntity.save()
   }
   return signal as Signal
 }
@@ -850,14 +863,28 @@ export function queueSubgraphSignalsUpdate(subgraph: Subgraph): void {
   // DARK MAGIC ZONE
   let i = 0
   // find first non empty slot for queue
-  while (SignalsQueue.load(i.toString()) != null) {
+  while (SubgraphSignalsQueue.load(i.toString()) != null) {
     i++
   }
   // create queue entity in empty slot with subgraph
-  let queueEntity = new SignalsQueue(i.toString())
+  let queueEntity = new SubgraphSignalsQueue(i.toString())
   queueEntity.subgraph = subgraph.id
   queueEntity.save()
 }
+
+export function queueDeploymentSignalsUpdate(deployment: SubgraphDeployment): void {
+  // DARK MAGIC ZONE
+  let i = 0
+  // find first non empty slot for queue
+  while (DeploymentSignalsQueue.load(i.toString()) != null) {
+    i++
+  }
+  // create queue entity in empty slot with subgraph
+  let queueEntity = new DeploymentSignalsQueue(i.toString())
+  queueEntity.subgraphDeployment = deployment.id
+  queueEntity.save()
+}
+
 export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
   // iterate over all subgraph curators
   let curatorsListStrings = subgraph.get('curatorsList').toBytesArray() as Address[]
@@ -905,5 +932,43 @@ export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
 }
 
 export function updateAdvancedSignalMetrics(subgraphDeployment: SubgraphDeployment): void {
+  // iterate over all deployment curators
+  let curatorsListStrings = subgraphDeployment.get('curatorsList').toBytesArray() as Address[]
+  let gnsAddr = GraphNetwork.load('1').gns as Address
+  let CurationContract = Curation.bind(gnsAddr)
+  for (let i = 0; i < curatorsListStrings.length; i++) {
+    let curatorId = curatorsListStrings[i].toHexString()
+    let signal = Signal.load(joinID([curatorId, subgraphDeployment.id]))
+    let curator = Curator.load(curatorId)
+    curator.allCurrentGRTValue = curator.allCurrentGRTValue.minus(signal.currentGRTValue)
+    if (signal.signal.isZero()) {
+      signal.currentGRTValue = BigInt.fromI32(0)
+    } else {
+      let call = CurationContract.try_signalToTokens(
+        Address.fromString(subgraphDeployment.id),
+        signal.signal,
+      )
+      signal.currentGRTValue = call.reverted ? BigInt.fromI32(0) : call.value
+    }
+    curator.allCurrentGRTValue = curator.allCurrentGRTValue.plus(signal.currentGRTValue)
+
+    curator.unrealizedPLGrt = curator.unrealizedPLGrt.minus(signal.unrealizedPLGrt)
+    signal.unrealizedPLGrt = signal.currentGRTValue
+      .toBigDecimal()
+      .minus(signal.signal.toBigDecimal().times(signal.lastBuyInPrice))
+    curator.unrealizedPLGrt = curator.unrealizedPLGrt.plus(signal.unrealizedPLGrt)
+
+    curator.PLGrt = curator.PLGrt.minus(signal.PLGrt)
+    signal.PLGrt = signal.unsignalledTokens
+      .minus(signal.signalledTokens)
+      .plus(signal.currentGRTValue)
+      .toBigDecimal()
+    // OR
+    // nSignal.PLGrt = nSignal.unrealizedPLGrt.plus(nSignal.realizedPLGrt)
+    curator.PLGrt = curator.PLGrt.plus(signal.PLGrt)
+
+    signal.save()
+    curator.save()
+  }
 
 }
