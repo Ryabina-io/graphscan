@@ -92,6 +92,7 @@ export function createOrLoadSubgraphDeployment(
     deployment.allocationsCount = 0
     deployment.curatorsList = []
     deployment.subgraphsList = []
+    deployment.signalsCount = 0
     deployment.save()
 
     let graphNetwork = GraphNetwork.load('1')
@@ -264,6 +265,7 @@ export function createOrLoadCurator(id: string, timestamp: BigInt): Curator {
     curator.totalNameSignal = BigDecimal.fromString('0')
     curator.totalAverageCostBasisPerNameSignal = BigDecimal.fromString('0')
     curator.nameSignalsCount = 0
+    curator.signalsCount = 0
     curator.allCurrentGRTValue = BigInt.fromI32(0)
     curator.PLGrt = BigDecimal.fromString('0')
     curator.unrealizedPLGrt = BigDecimal.fromString('0')

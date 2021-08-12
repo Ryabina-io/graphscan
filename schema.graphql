@@ -418,6 +418,9 @@ type SubgraphDeployment @entity {
 
   "Curators of this subgraph deployment"
   curatorSignals: [Signal!]! @derivedFrom(field: "subgraphDeployment")
+
+  signalsCount: Int!
+  
   "Bonding curve reserve ratio. In parts per million"
   reserveRatio: Int!
 
@@ -770,6 +773,7 @@ type Curator @entity {
   defaultDisplayName: String
 
   nameSignalsCount: Int!
+  signalsCount: Int!
   "CUMULATIVE tokens signalled on all names"
   totalNameSignalledTokens: BigInt!
   "CUMULATIVE tokens unsignalled on all names"
