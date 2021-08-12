@@ -25,7 +25,6 @@ import {
   SubgraphDeployment,
   Delegator,
   GraphAccount,
-  SubgraphSignalsQueue,
   DeploymentSignalsQueue,
 } from '../types/schema'
 
@@ -40,7 +39,6 @@ import {
   joinID,
   createOrLoadNameSignal,
   updateDeploymentSignaledTokens,
-  queueSubgraphSignalsUpdate,
   updateAdvancedNSignalMetrics,
   updateAdvancedSignalMetrics,
 } from './helpers'
@@ -242,6 +240,12 @@ export function handleSubgraphPublished(event: SubgraphPublished): void {
   }
   subgraphDeployment.subgraphImg = subgraph.image
   subgraphDeployment.subgraphId = event.params.subgraphNumber
+
+  // Adding subgraph to subgraphList of deployment
+  let deploymentSubgraphsList = subgraphDeployment.subgraphsList
+  deploymentSubgraphsList.push(subgraphID)
+  subgraphDeployment.subgraphsList = deploymentSubgraphsList
+
   subgraphDeployment.save()
 }
 /**
@@ -346,7 +350,6 @@ export function handleNSignalMinted(event: NSignalMinted): void {
   nSignalTransaction.tokens = event.params.tokensDeposited
   nSignalTransaction.subgraph = subgraphID
   nSignalTransaction.save()
-  queueSubgraphSignalsUpdate(subgraph as Subgraph)
 }
 
 export function handleNSignalBurned(event: NSignalBurned): void {
@@ -428,7 +431,6 @@ export function handleNSignalBurned(event: NSignalBurned): void {
   nSignalTransaction.tokens = event.params.tokensReceived
   nSignalTransaction.subgraph = subgraphID
   nSignalTransaction.save()
-  queueSubgraphSignalsUpdate(subgraph as Subgraph)
 }
 
 export function handleNameSignalUpgrade(event: NameSignalUpgrade): void {
@@ -444,7 +446,6 @@ export function handleNameSignalUpgrade(event: NameSignalUpgrade): void {
   subgraph.signalledTokens = subgraph.signalledTokens.plus(event.params.tokensSignalled)
   subgraph.save()
   updateDeploymentSignaledTokens(subgraph as Subgraph)
-  queueSubgraphSignalsUpdate(subgraph as Subgraph)
 }
 
 // Only need to upgrade withdrawable tokens. Everything else handled from
@@ -485,24 +486,24 @@ export function handleGRTWithdrawn(event: GRTWithdrawn): void {
   }
   curator.totalWithdrawnTokens = curator.totalWithdrawnTokens.plus(event.params.withdrawnGRT)
   curator.save()
-  queueSubgraphSignalsUpdate(subgraph as Subgraph)
 }
 
 export function handleBlock(block: ethereum.Block): void {
   // DARK MAGIC ZONE
-  let queueEntity: SubgraphSignalsQueue | null
-  let i = 0
-  while ((queueEntity = SubgraphSignalsQueue.load(i.toString())) != null) {
-    updateAdvancedNSignalMetrics(Subgraph.load(queueEntity.subgraph) as Subgraph)
-    store.remove('SubgraphSignalsQueue', i.toString())
-    i++
-  }
   let queueEntityDeployment: DeploymentSignalsQueue | null
-  i = 0
+  let i = 0
   while ((queueEntityDeployment = DeploymentSignalsQueue.load(i.toString())) != null) {
-    updateAdvancedSignalMetrics(
-      SubgraphDeployment.load(queueEntityDeployment.subgraphDeployment) as SubgraphDeployment,
-    )
+    let deployment = SubgraphDeployment.load(
+      queueEntityDeployment.subgraphDeployment,
+    ) as SubgraphDeployment
+    // update direct signals
+    updateAdvancedSignalMetrics(deployment)
+    // loop over all subgraphs linked to this deployment and procced them
+    let subgraphsList = deployment.subgraphsList
+    for (let i = 0; i < subgraphsList.length; i++) {
+      let subgraphId = subgraphsList[i]
+      updateAdvancedNSignalMetrics(Subgraph.load(subgraphId) as Subgraph)
+    }
     store.remove('DeploymentSignalsQueue', i.toString())
     i++
   }

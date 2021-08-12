@@ -188,15 +188,6 @@ type DeploymentSignalsQueue @entity {
 }
 
 """
-ZONE OF DARK MAGIC DONT USE IT OR U DIE
-"""
-type SubgraphSignalsQueue @entity {
-  "ID is 0 - infinity"
-  id: ID!
-  subgraph: ID!
-}
-
-"""
 An account within the graph network. Contains metadata and all relevant data for this accounts
 delegating, curating, and indexing.
 """
@@ -390,6 +381,7 @@ type SubgraphDeployment @entity {
   id: ID!
   "The versions this subgraph deployment relates to"
   versions: [SubgraphVersion!]! @derivedFrom(field: "subgraphDeployment")
+  subgraphsList: [Subgraph!]!
   "Creation timestamp"
   createdAt: Int!
   "The block at which this deployment was denied for rewards. Null if not denied"

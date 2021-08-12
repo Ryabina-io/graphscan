@@ -18,7 +18,6 @@ import {
   DelegationPoolHistoryEntity,
   DelegatorRewardHistoryEntity,
   IndexerDeployment,
-  SubgraphSignalsQueue,
   DeploymentSignalsQueue,
 } from '../types/schema'
 import { ENS } from '../types/GNS/ENS'
@@ -92,6 +91,7 @@ export function createOrLoadSubgraphDeployment(
     deployment.indexersCount = 0
     deployment.allocationsCount = 0
     deployment.curatorsList = []
+    deployment.subgraphsList = []
     deployment.save()
 
     let graphNetwork = GraphNetwork.load('1')
@@ -858,19 +858,6 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
       }
     }
   }
-}
-
-export function queueSubgraphSignalsUpdate(subgraph: Subgraph): void {
-  // DARK MAGIC ZONE
-  let i = 0
-  // find first non empty slot for queue
-  while (SubgraphSignalsQueue.load(i.toString()) != null) {
-    i++
-  }
-  // create queue entity in empty slot with subgraph
-  let queueEntity = new SubgraphSignalsQueue(i.toString())
-  queueEntity.subgraph = subgraph.id
-  queueEntity.save()
 }
 
 export function queueDeploymentSignalsUpdate(deployment: SubgraphDeployment): void {
