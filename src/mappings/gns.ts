@@ -1,4 +1,13 @@
-import { BigDecimal, ethereum, Bytes, ipfs, json, store } from '@graphprotocol/graph-ts'
+import {
+  BigDecimal,
+  BigInt,
+  ethereum,
+  Bytes,
+  ipfs,
+  json,
+  store,
+  Address,
+} from '@graphprotocol/graph-ts'
 import {
   SubgraphPublished,
   SubgraphDeprecated,
@@ -242,10 +251,12 @@ export function handleSubgraphPublished(event: SubgraphPublished): void {
   subgraphDeployment.subgraphId = event.params.subgraphNumber
 
   // Adding subgraph to subgraphList of deployment
-  let deploymentSubgraphsList = subgraphDeployment.subgraphsList
-  deploymentSubgraphsList.push(subgraphID)
-  subgraphDeployment.subgraphsList = deploymentSubgraphsList
-
+  let deploymentSubgraphAccountsList = subgraphDeployment.subgraphAccountsList
+  deploymentSubgraphAccountsList.push(Bytes.fromHexString(graphAccountID) as Bytes)
+  subgraphDeployment.subgraphAccountsList = deploymentSubgraphAccountsList
+  let deploymentSubgraphNumbersList = subgraphDeployment.subgraphNumbersList
+  deploymentSubgraphNumbersList.push(event.params.subgraphNumber.toI32())
+  subgraphDeployment.subgraphNumbersList = deploymentSubgraphNumbersList
   subgraphDeployment.save()
 }
 /**
@@ -293,6 +304,7 @@ export function handleNSignalMinted(event: NSignalMinted): void {
     subgraphID,
     event.block.timestamp,
   )
+  subgraph = Subgraph.load(subgraphID)
   if (nameSignal.nameSignal.isZero()) {
     curator.nameSignalsCount = curator.nameSignalsCount + 1
     subgraph.nameSignalsCount = subgraph.nameSignalsCount + 1
@@ -386,6 +398,8 @@ export function handleNSignalBurned(event: NSignalBurned): void {
   nameSignal.nameSignal = nameSignal.nameSignal.minus(event.params.nSignalBurnt)
   nameSignal.unsignalledTokens = nameSignal.unsignalledTokens.plus(event.params.tokensReceived)
   nameSignal.lastNameSignalChange = event.block.timestamp.toI32()
+
+  subgraph = Subgraph.load(subgraphID)
   if (nameSignal.nameSignal.isZero()) {
     curator.nameSignalsCount = curator.nameSignalsCount - 1
     subgraph.nameSignalsCount = subgraph.nameSignalsCount - 1
@@ -499,9 +513,14 @@ export function handleBlock(block: ethereum.Block): void {
     // update direct signals
     updateAdvancedSignalMetrics(deployment)
     // loop over all subgraphs linked to this deployment and procced them
-    let subgraphsList = deployment.subgraphsList
-    for (let i = 0; i < subgraphsList.length; i++) {
-      let subgraphId = subgraphsList[i]
+
+    let subgraphAccountsList = deployment.get('subgraphAccountsList').toBytesArray() as Address[]
+    let subgraphNumbersList = deployment.subgraphNumbersList
+    for (let i = 0; i < subgraphAccountsList.length; i++) {
+      let subgraphId = joinID([
+        subgraphAccountsList[i].toHexString(),
+        BigInt.fromI32(subgraphNumbersList[i]).toString(),
+      ])
       updateAdvancedNSignalMetrics(Subgraph.load(subgraphId) as Subgraph)
     }
     store.remove('DeploymentSignalsQueue', i.toString())

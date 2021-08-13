@@ -41,10 +41,17 @@ export function handleSignalled(event: Signalled): void {
   let subgraphDeploymentID = event.params.subgraphDeploymentID.toHexString()
   let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
   let signal = createOrLoadSignal(id, subgraphDeploymentID)
+  deployment = SubgraphDeployment.load(subgraphDeploymentID) as SubgraphDeployment
   if (signal.signal.isZero()) {
     curator.signalsCount = curator.signalsCount + 1
     deployment.signalsCount = deployment.signalsCount + 1
   }
+  // update lastBuyInPrice
+  signal.lastBuyInPrice = signal.lastBuyInPrice
+    .times(signal.signal.toBigDecimal())
+    .plus(event.params.tokens.toBigDecimal())
+    .div(signal.signal.toBigDecimal().plus(event.params.signal.toBigDecimal()))
+  // update lastBuyInPrice
   curator.save()
   signal.signalledTokens = signal.signalledTokens.plus(
     event.params.tokens.minus(event.params.curationTax),

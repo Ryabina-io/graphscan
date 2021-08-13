@@ -322,7 +322,7 @@ type Subgraph @entity {
   withdrawnTokens: BigInt!
   "Curators of this subgraph deployment"
   nameSignals: [NameSignal!]! @derivedFrom(field: "subgraph")
-  curatorsList: [Curator!]!
+  curatorsList: [Bytes!]!
 
   # Metadata from IPFS linked in GNS
   "Subgraph metadata"
@@ -381,7 +381,8 @@ type SubgraphDeployment @entity {
   id: ID!
   "The versions this subgraph deployment relates to"
   versions: [SubgraphVersion!]! @derivedFrom(field: "subgraphDeployment")
-  subgraphsList: [Subgraph!]!
+  subgraphAccountsList: [Bytes!]!
+  subgraphNumbersList: [Int!]!
   "Creation timestamp"
   createdAt: Int!
   "The block at which this deployment was denied for rewards. Null if not denied"
@@ -435,7 +436,7 @@ type SubgraphDeployment @entity {
   signaledReal: BigInt!
   indexersCount: Int!
   allocationsCount: Int!
-  curatorsList: [Curator!]!
+  curatorsList: [Bytes!]!
 }
 
 # TODO - add when we have the ability to parse data sources
@@ -562,7 +563,7 @@ type Indexer @entity {
   annualizedReturn: BigDecimal! # You must multiple by 100 to get percentage
   "NOT IMPLEMENTED - Staking efficiency of the indexer"
   stakingEfficiency: BigDecimal!
-  delegatorsList: [Delegator!]!
+  delegatorsList: [Bytes!]
 
   delegatorsCount: Int!
 }

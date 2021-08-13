@@ -91,7 +91,8 @@ export function createOrLoadSubgraphDeployment(
     deployment.indexersCount = 0
     deployment.allocationsCount = 0
     deployment.curatorsList = []
-    deployment.subgraphsList = []
+    deployment.subgraphAccountsList = []
+    deployment.subgraphNumbersList = []
     deployment.signalsCount = 0
     deployment.save()
 
@@ -234,7 +235,7 @@ export function createOrLoadDelegatedStake(
     delegatedStake.save()
     let indexerEntity = Indexer.load(indexer)
     let newDelegatorsList = indexerEntity.delegatorsList
-    newDelegatorsList.push(delegator)
+    newDelegatorsList.push(Bytes.fromHexString(delegator) as Bytes)
     indexerEntity.delegatorsCount = indexerEntity.delegatorsCount + 1
     indexerEntity.delegatorsList = newDelegatorsList
     indexerEntity.save()
@@ -305,7 +306,7 @@ export function createOrLoadSignal(curator: string, subgraphDeploymentID: string
     signal.save()
     let deploymentEntity = SubgraphDeployment.load(subgraphDeploymentID)
     let newCuratorsList = deploymentEntity.curatorsList
-    newCuratorsList.push(curator)
+    newCuratorsList.push(Bytes.fromHexString(curator) as Bytes)
     deploymentEntity.curatorsList = newCuratorsList
     deploymentEntity.save()
   }
@@ -340,7 +341,7 @@ export function createOrLoadNameSignal(
     nameSignal.save()
     let subgraphEntity = Subgraph.load(subgraphID)
     let newCuratorsList = subgraphEntity.curatorsList
-    newCuratorsList.push(curator)
+    newCuratorsList.push(Bytes.fromHexString(curator) as Bytes)
     subgraphEntity.curatorsList = newCuratorsList
     subgraphEntity.save()
   }
@@ -797,10 +798,10 @@ export function createDelegatorRewardHistoryEntityFromIndexer(
 ): void {
   let graphNetwork = GraphNetwork.load('1')
   let indexer = Indexer.load(indexerId)
-  let delegatorsList = indexer.delegatorsList
-  for (let i = 0; i < delegatorsList.length; i++) {
-    let delegatorId = delegatorsList[i]
-    let delegatedStake = DelegatedStake.load(joinID([delegatorId, indexer.id]))
+  let delegatorsListStrings = indexer.get('delegatorsList').toBytesArray() as Address[]
+  for (let i = 0; i < delegatorsListStrings.length; i++) {
+    let delegatorStakeid = delegatorsListStrings[i]
+    let delegatedStake = DelegatedStake.load(joinID([delegatorStakeid.toHexString(), indexer.id]))
     if (delegatedStake) {
       let id = indexer.id + delegatedStake.delegator + event.block.number.toString()
       let delegator = Delegator.load(delegatedStake.delegator)
@@ -877,15 +878,15 @@ export function queueDeploymentSignalsUpdate(deployment: SubgraphDeployment): vo
 
 export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
   // iterate over all subgraph curators
-  let curatorsList = subgraph.curatorsList
+  let curatorsListStrings = subgraph.get('curatorsList').toBytesArray() as Address[]
   let gnsAddr = GraphNetwork.load('1').gns as Address
   let GNScontract = GNS.bind(gnsAddr)
   let splitted = subgraph.id.split('-')
   let subgraphAddress = splitted[0]
   let subgraphNumberStr = splitted[1]
   let subgraphNumber: BigInt = BigInt.fromI32(parseInt(subgraphNumberStr, 10) as i32)
-  for (let i = 0; i < curatorsList.length; i++) {
-    let curatorId = curatorsList[i]
+  for (let i = 0; i < curatorsListStrings.length; i++) {
+    let curatorId = curatorsListStrings[i].toHexString()
     let nSignal = NameSignal.load(joinID([curatorId, subgraph.id]))
     let curator = Curator.load(curatorId)
     curator.allCurrentGRTValue = curator.allCurrentGRTValue.minus(nSignal.currentGRTValue)
@@ -923,11 +924,11 @@ export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
 
 export function updateAdvancedSignalMetrics(subgraphDeployment: SubgraphDeployment): void {
   // iterate over all deployment curators
-  let curatorsList = subgraphDeployment.curatorsList
-  let gnsAddr = GraphNetwork.load('1').gns as Address
-  let CurationContract = Curation.bind(gnsAddr)
-  for (let i = 0; i < curatorsList.length; i++) {
-    let curatorId = curatorsList[i]
+  let curatorsListStrings = subgraphDeployment.get('curatorsList').toBytesArray() as Address[]
+  let curationAddr = GraphNetwork.load('1').curation as Address
+  let CurationContract = Curation.bind(curationAddr)
+  for (let i = 0; i < curatorsListStrings.length; i++) {
+    let curatorId = curatorsListStrings[i].toHexString()
     let signal = Signal.load(joinID([curatorId, subgraphDeployment.id]))
     let curator = Curator.load(curatorId)
     curator.allCurrentGRTValue = curator.allCurrentGRTValue.minus(signal.currentGRTValue)
@@ -935,7 +936,7 @@ export function updateAdvancedSignalMetrics(subgraphDeployment: SubgraphDeployme
       signal.currentGRTValue = BigInt.fromI32(0)
     } else {
       let call = CurationContract.try_signalToTokens(
-        Address.fromString(subgraphDeployment.id),
+        Bytes.fromHexString(subgraphDeployment.id) as Bytes,
         signal.signal,
       )
       signal.currentGRTValue = call.reverted ? BigInt.fromI32(0) : call.value
