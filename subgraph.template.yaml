@@ -2,10 +2,7 @@ specVersion: 0.0.2
 description: The Graph Network Smart Contracts on Ethereum for Graphscan.io
 repository: https://github.com/Ryabina-io/graphscan
 schema:
-  file: ./schema.graphql
-graft:
-  base: QmWqh9wjZmnVorpKUxTuwZ1xuPpukdAsyA7R4QMMy2Nqgr # Subgraph ID of base subgraph
-  block: 13625600 # Block number    
+  file: ./schema.graphql 
 dataSources:
   - kind: ethereum/contract
     name: Controller

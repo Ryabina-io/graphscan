@@ -719,17 +719,18 @@ export function calculateOverdelegationDilution(indexer: Indexer): BigDecimal {
 export function updateAdvancedIndexerMetrics(indexer: Indexer, event: ethereum.Event): Indexer {
   indexer.ownStakeRatio = calculateOwnStakeRatio(indexer as Indexer)
   indexer.delegatedStakeRatio = calculateDelegatedStakeRatio(indexer as Indexer)
+  let activeIndexerStake = indexer.stakedTokens.minus(indexer.lockedTokens)
   if (indexer.delegatedTokens.notEqual(BigInt.fromI32(0))) {
     indexer.queryFeeEffectiveCut = BigInt.fromI32(indexer.queryFeeCut)
-      .times(indexer.stakedTokens.plus(indexer.delegatedTokens))
+      .times(activeIndexerStake.plus(indexer.delegatedTokens))
       .div(MILLION)
-      .minus(indexer.stakedTokens)
+      .minus(activeIndexerStake)
       .times(MILLION)
       .div(indexer.delegatedTokens)
     indexer.indexingRewardEffectiveCut = BigInt.fromI32(indexer.indexingRewardCut)
-      .times(indexer.stakedTokens.plus(indexer.delegatedTokens))
+      .times(activeIndexerStake.plus(indexer.delegatedTokens))
       .div(MILLION)
-      .minus(indexer.stakedTokens)
+      .minus(activeIndexerStake)
       .times(MILLION)
       .div(indexer.delegatedTokens)
   }
@@ -737,12 +738,12 @@ export function updateAdvancedIndexerMetrics(indexer: Indexer, event: ethereum.E
     indexer as Indexer,
   )
   indexer.overDelegationDilution = calculateOverdelegationDilution(indexer as Indexer)
-  indexer.totalTokensPool = indexer.stakedTokens.plus(indexer.delegatedTokens)
+  indexer.totalTokensPool = activeIndexerStake.plus(indexer.delegatedTokens)
   indexer.notAllocatedTokens = indexer.totalTokensPool.minus(indexer.allocatedTokens)
   indexer.indexerQueryFees = indexer.queryFeesCollected.minus(indexer.delegatorQueryFees)
   let graphNetwork = GraphNetwork.load('1')
   indexer.delegationRemaining = BigInt.fromI32(graphNetwork.delegationRatio)
-    .times(indexer.stakedTokens)
+    .times(activeIndexerStake)
     .minus(indexer.delegatedTokens)
   createRewardsCutHistoryEntity(indexer, event)
   createDelegationPoolHistoryEntity(indexer, event)
@@ -764,7 +765,7 @@ function createDelegationPoolHistoryEntity(indexer: Indexer, event: ethereum.Eve
   }
   let graphNetwork = GraphNetwork.load('1')
   poolHistory.indexer = indexer.id
-  poolHistory.stakedTokens = indexer.stakedTokens
+  poolHistory.stakedTokens = indexer.stakedTokens.minus(indexer.lockedTokens)
   poolHistory.delegatedTokens = indexer.delegatedTokens
   poolHistory.blockNumber = event.block.number.toI32()
   poolHistory.timestamp = event.block.timestamp.toI32()
