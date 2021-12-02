@@ -868,7 +868,14 @@ export function queueDeploymentSignalsUpdate(deployment: SubgraphDeployment): vo
   // DARK MAGIC ZONE
   let i = 0
   // find first non empty slot for queue
-  while (DeploymentSignalsQueue.load(i.toString()) != null) {
+  let loadedEntity = DeploymentSignalsQueue.load(i.toString())
+  while (true) {
+    if (loadedEntity === null) {
+      break
+    }
+    if (loadedEntity.subgraphDeployment === deployment.id) {
+      return
+    }
     i++
   }
   // create queue entity in empty slot with subgraph
