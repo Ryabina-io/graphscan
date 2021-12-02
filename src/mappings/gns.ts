@@ -503,6 +503,10 @@ export function handleGRTWithdrawn(event: GRTWithdrawn): void {
 }
 
 export function handleBlock(block: ethereum.Block): void {
+  if (block.number.le(BigInt.fromI32(13726000))) {
+    // skip signals history until 13726000 block
+    return
+  }
   // DARK MAGIC ZONE
   let queueEntityDeployment: DeploymentSignalsQueue | null
   let i = 0
