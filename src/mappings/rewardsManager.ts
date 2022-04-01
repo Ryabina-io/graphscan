@@ -10,6 +10,7 @@ import {
   createOrLoadSubgraphDeployment,
   createOrLoadEpoch,
   updateAdvancedIndexerMetrics,
+  createDelegatorRewardHistoryEntityFromIndexer
 } from './helpers'
 
 export function handleRewardsAssigned(event: RewardsAssigned): void {
@@ -37,9 +38,8 @@ export function handleRewardsAssigned(event: RewardsAssigned): void {
       .toBigDecimal()
       .div(indexer.delegatorShares.toBigDecimal())
   }
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer.save()
-
   // update allocation
   // no status updated, Claimed happens when RebateClaimed, and it is done
   let allocation = Allocation.load(allocationID)
@@ -84,6 +84,7 @@ export function handleRewardsAssigned(event: RewardsAssigned): void {
     delegatorIndexingRewards,
   )
   graphNetwork.save()
+  createDelegatorRewardHistoryEntityFromIndexer(indexerID, event)
 }
 
 /**
@@ -113,10 +114,13 @@ export function handleParameterUpdated(event: ParameterUpdated): void {
 
 export function handleRewardsDenyListUpdated(event: RewardsDenylistUpdated): void {
   let subgraphDeployment = SubgraphDeployment.load(event.params.subgraphDeploymentID.toHexString())
-  if (event.params.sinceBlock.toI32() == 0) {
-    subgraphDeployment.deniedAt = 0
-  } else {
-    subgraphDeployment.deniedAt = event.params.sinceBlock.toI32()
+  if (subgraphDeployment != null) {
+    if (event.params.sinceBlock.toI32() == 0) {
+      subgraphDeployment.deniedAt = 0
+    } else {
+      subgraphDeployment.deniedAt = event.params.sinceBlock.toI32()
+    }
+    subgraphDeployment.save()
   }
-  subgraphDeployment.save()
+  // We might need to handle the case where the subgraph deployment doesn't exists later
 }

@@ -14,12 +14,20 @@ import {
   NameSignal,
   Delegator,
   DelegatedStake,
+  RewardCutHistoryEntity,
+  DelegationPoolHistoryEntity,
+  DelegatorRewardHistoryEntity,
+  IndexerDeployment,
+  DeploymentSignalsQueue,
 } from '../types/schema'
 import { ENS } from '../types/GNS/ENS'
 import { Controller } from '../types/Controller/Controller'
+import { GNS } from '../types/GNS/GNS'
+import { Curation } from '../types/Curation/Curation'
 
 import { addresses } from '../../config/addresses'
-
+import { ethereum } from '@graphprotocol/graph-ts'
+let MILLION = BigInt.fromI32(1000000)
 export function createOrLoadSubgraph(
   subgraphID: string,
   owner: Address,
@@ -46,6 +54,8 @@ export function createOrLoadSubgraph(
     subgraph.codeRepository = ''
     subgraph.website = ''
     subgraph.displayName = ''
+    subgraph.curatorsList = []
+    subgraph.nameSignalsCount = 0
 
     subgraph.save()
 
@@ -77,6 +87,13 @@ export function createOrLoadSubgraphDeployment(
     deployment.signalAmount = BigInt.fromI32(0)
     deployment.reserveRatio = 0
     deployment.deniedAt = 0
+    deployment.signaledReal = BigInt.fromI32(0)
+    deployment.indexersCount = 0
+    deployment.allocationsCount = 0
+    deployment.curatorsList = []
+    deployment.subgraphAccountsList = []
+    deployment.subgraphNumbersList = []
+    deployment.signalsCount = 0
     deployment.save()
 
     let graphNetwork = GraphNetwork.load('1')
@@ -95,6 +112,10 @@ export function createOrLoadIndexer(id: string, timestamp: BigInt): Indexer {
 
     indexer.stakedTokens = BigInt.fromI32(0)
     indexer.allocatedTokens = BigInt.fromI32(0)
+    indexer.notAllocatedTokens = BigInt.fromI32(0)
+    indexer.totalTokensPool = BigInt.fromI32(0)
+    indexer.delegationRemaining = BigInt.fromI32(0)
+    indexer.indexerQueryFees = BigInt.fromI32(0)
     indexer.lockedTokens = BigInt.fromI32(0)
     indexer.unstakedTokens = BigInt.fromI32(0)
     indexer.tokensLockedUntil = 0
@@ -113,7 +134,8 @@ export function createOrLoadIndexer(id: string, timestamp: BigInt): Indexer {
     indexer.delegatorShares = BigInt.fromI32(0)
     indexer.delegationExchangeRate = BigDecimal.fromString('0')
     indexer.indexingRewardCut = 0
-    indexer.indexingRewardEffectiveCut = BigDecimal.fromString('0')
+    indexer.indexingRewardEffectiveCut = BigInt.fromI32(0)
+    indexer.queryFeeEffectiveCut = BigInt.fromI32(0)
     indexer.overDelegationDilution = BigDecimal.fromString('0')
     indexer.delegatorIndexingRewards = BigInt.fromI32(0)
     indexer.indexerIndexingRewards = BigInt.fromI32(0)
@@ -123,13 +145,15 @@ export function createOrLoadIndexer(id: string, timestamp: BigInt): Indexer {
     indexer.lastDelegationParameterUpdate = 0
     indexer.forcedClosures = 0
     indexer.allocationCount = 0
+    indexer.delegatorsCount = 0
     indexer.totalAllocationCount = BigInt.fromI32(0)
 
     indexer.totalReturn = BigDecimal.fromString('0')
     indexer.annualizedReturn = BigDecimal.fromString('0')
     indexer.stakingEfficiency = BigDecimal.fromString('0')
+    indexer.delegatorsList = []
 
-    let graphAccount = GraphAccount.load(id)
+    let graphAccount = createOrLoadGraphAccount(id, Address.fromString(id), timestamp)
     graphAccount.indexer = id
     graphAccount.save()
 
@@ -153,9 +177,15 @@ export function createOrLoadDelegator(id: string, timestamp: BigInt): Delegator 
     delegator.totalUnstakedTokens = BigInt.fromI32(0)
     delegator.createdAt = timestamp.toI32()
     delegator.totalRealizedRewards = BigDecimal.fromString('0')
+    delegator.totalRewards = BigDecimal.fromString('0')
+    delegator.unreleasedReward = BigDecimal.fromString('0')
+    delegator.unreleasedPercent = BigDecimal.fromString('0')
+    delegator.stakesCount = 0
+    delegator.activeStakesCount = 0
+    delegator.currentStaked = BigDecimal.fromString('0')
     delegator.save()
 
-    let graphAccount = GraphAccount.load(id)
+    let graphAccount = createOrLoadGraphAccount(id, Address.fromString(id), timestamp)
     graphAccount.delegator = id
     graphAccount.save()
 
@@ -166,6 +196,18 @@ export function createOrLoadDelegator(id: string, timestamp: BigInt): Delegator 
   return delegator as Delegator
 }
 
+export function createOrLoadIntexerDeployment(
+  indexer: string,
+  deployment: string,
+): IndexerDeployment {
+  let id = joinID([indexer, deployment])
+  let indexerDeployment = IndexerDeployment.load(id)
+  if (indexerDeployment == null) {
+    indexerDeployment = new IndexerDeployment(id)
+    indexerDeployment.allocations = 0
+  }
+  return indexerDeployment as IndexerDeployment
+}
 export function createOrLoadDelegatedStake(
   delegator: string,
   indexer: string,
@@ -177,6 +219,7 @@ export function createOrLoadDelegatedStake(
     delegatedStake = new DelegatedStake(id)
     delegatedStake.indexer = indexer
     delegatedStake.delegator = delegator
+    delegatedStake.delegatorId = delegator
     delegatedStake.stakedTokens = BigInt.fromI32(0)
     delegatedStake.unstakedTokens = BigInt.fromI32(0)
     delegatedStake.lockedTokens = BigInt.fromI32(0)
@@ -185,8 +228,20 @@ export function createOrLoadDelegatedStake(
     delegatedStake.personalExchangeRate = BigDecimal.fromString('0')
     delegatedStake.realizedRewards = BigDecimal.fromString('0')
     delegatedStake.createdAt = timestamp
-
+    delegatedStake.totalRewards = BigDecimal.fromString('0')
+    delegatedStake.unreleasedReward = BigDecimal.fromString('0')
+    delegatedStake.currentDelegationAmount = BigDecimal.fromString('0')
+    delegatedStake.unreleasedRewardsPercent = BigDecimal.fromString('0')
     delegatedStake.save()
+    let indexerEntity = Indexer.load(indexer)
+    let newDelegatorsList = indexerEntity.delegatorsList
+    newDelegatorsList.push(Bytes.fromHexString(delegator) as Bytes)
+    indexerEntity.delegatorsCount = indexerEntity.delegatorsCount + 1
+    indexerEntity.delegatorsList = newDelegatorsList
+    indexerEntity.save()
+    let delegatorEntity = Delegator.load(delegator)
+    delegatorEntity.stakesCount = delegatorEntity.stakesCount + 1
+    delegatorEntity.save()
   }
   return delegatedStake as DelegatedStake
 }
@@ -210,9 +265,17 @@ export function createOrLoadCurator(id: string, timestamp: BigInt): Curator {
     curator.totalNameSignalAverageCostBasis = BigDecimal.fromString('0')
     curator.totalNameSignal = BigDecimal.fromString('0')
     curator.totalAverageCostBasisPerNameSignal = BigDecimal.fromString('0')
+    curator.nameSignalsCount = 0
+    curator.signalsCount = 0
+    curator.allCurrentGRTValue = BigInt.fromI32(0)
+    curator.PLGrt = BigDecimal.fromString('0')
+    curator.unrealizedPLGrt = BigDecimal.fromString('0')
+    curator.realizedPLGrt = BigDecimal.fromString('0')
+    curator.lastSignaledAt = 0
+    curator.lastUnsignaledAt = 0
     curator.save()
 
-    let graphAccount = GraphAccount.load(id)
+    let graphAccount = createOrLoadGraphAccount(id, Address.fromString(id), timestamp)
     graphAccount.curator = id
     graphAccount.save()
 
@@ -235,7 +298,17 @@ export function createOrLoadSignal(curator: string, subgraphDeploymentID: string
     signal.signal = BigInt.fromI32(0)
     signal.lastSignalChange = 0
     signal.realizedRewards = BigInt.fromI32(0)
+    signal.currentGRTValue = BigInt.fromI32(0)
+    signal.PLGrt = BigDecimal.fromString('0')
+    signal.unrealizedPLGrt = BigDecimal.fromString('0')
+    signal.realizedPLGrt = BigDecimal.fromString('0')
+    signal.lastBuyInPrice = BigDecimal.fromString('0')
     signal.save()
+    let deploymentEntity = SubgraphDeployment.load(subgraphDeploymentID)
+    let newCuratorsList = deploymentEntity.curatorsList
+    newCuratorsList.push(Bytes.fromHexString(curator) as Bytes)
+    deploymentEntity.curatorsList = newCuratorsList
+    deploymentEntity.save()
   }
   return signal as Signal
 }
@@ -260,7 +333,17 @@ export function createOrLoadNameSignal(
     nameSignal.realizedRewards = BigInt.fromI32(0)
     nameSignal.averageCostBasis = BigDecimal.fromString('0')
     nameSignal.averageCostBasisPerSignal = BigDecimal.fromString('0')
+    nameSignal.currentGRTValue = BigInt.fromI32(0)
+    nameSignal.PLGrt = BigDecimal.fromString('0')
+    nameSignal.unrealizedPLGrt = BigDecimal.fromString('0')
+    nameSignal.realizedPLGrt = BigDecimal.fromString('0')
+    nameSignal.lastBuyInPrice = BigDecimal.fromString('0')
     nameSignal.save()
+    let subgraphEntity = Subgraph.load(subgraphID)
+    let newCuratorsList = subgraphEntity.curatorsList
+    newCuratorsList.push(Bytes.fromHexString(curator) as Bytes)
+    subgraphEntity.curatorsList = newCuratorsList
+    subgraphEntity.save()
   }
   return nameSignal as NameSignal
 }
@@ -280,6 +363,7 @@ export function createOrLoadGraphAccount(
     graphAccount.stakingApproval = BigInt.fromI32(0)
     graphAccount.gnsApproval = BigInt.fromI32(0)
     graphAccount.subgraphQueryFees = BigInt.fromI32(0)
+    graphAccount.tokenLockWallets = []
     graphAccount.save()
   }
   return graphAccount as GraphAccount
@@ -418,6 +502,7 @@ export function createOrLoadGraphNetwork(
     graphNetwork.defaultReserveRatio = 0
     graphNetwork.minimumCurationDeposit = BigInt.fromI32(0)
     graphNetwork.curationTaxPercentage = 0
+    graphNetwork.ownerTaxPercentage = 0
 
     graphNetwork.totalTokensSignalled = BigInt.fromI32(0)
 
@@ -565,7 +650,11 @@ function createGraphAccountName(
     // If so, remove the old owner, and set the new one
   } else if (graphAccountName.graphAccount != graphAccount) {
     // Set defaultDisplayName to null if they lost ownership of this name
-    let oldGraphAccount = GraphAccount.load(graphAccountName.graphAccount)
+    let oldGraphAccount = createOrLoadGraphAccount(
+      graphAccountName.graphAccount,
+      Address.fromString(graphAccountName.graphAccount),
+      BigInt.fromI32(0),
+    )
     oldGraphAccount.defaultDisplayName = null
     oldGraphAccount.save()
 
@@ -608,15 +697,6 @@ export function calculateDelegatedStakeRatio(indexer: Indexer): BigDecimal {
     : BigDecimal.fromString('1') - indexer.ownStakeRatio
 }
 
-export function calculateEffectiveCut(indexer: Indexer): BigDecimal {
-  let delegatorCut =
-    BigInt.fromI32(1000000 - indexer.indexingRewardCut).toBigDecimal() /
-    BigDecimal.fromString('1000000')
-  return indexer.delegatedStakeRatio == BigDecimal.fromString('0')
-    ? BigDecimal.fromString('0')
-    : BigDecimal.fromString('1') - delegatorCut / indexer.delegatedStakeRatio
-}
-
 export function calculateIndexerRewardOwnGenerationRatio(indexer: Indexer): BigDecimal {
   let rewardCut =
     BigInt.fromI32(indexer.indexingRewardCut).toBigDecimal() / BigDecimal.fromString('1000000')
@@ -636,13 +716,257 @@ export function calculateOverdelegationDilution(indexer: Indexer): BigDecimal {
     : BigDecimal.fromString('1') - maxDelegatedStake / max(maxDelegatedStake, delegatedTokensBD)
 }
 
-export function updateAdvancedIndexerMetrics(indexer: Indexer): Indexer {
+export function updateAdvancedIndexerMetrics(indexer: Indexer, event: ethereum.Event): Indexer {
   indexer.ownStakeRatio = calculateOwnStakeRatio(indexer as Indexer)
   indexer.delegatedStakeRatio = calculateDelegatedStakeRatio(indexer as Indexer)
-  indexer.indexingRewardEffectiveCut = calculateEffectiveCut(indexer as Indexer)
+  let activeIndexerStake = indexer.stakedTokens.minus(indexer.lockedTokens)
+  if (indexer.delegatedTokens.notEqual(BigInt.fromI32(0))) {
+    indexer.queryFeeEffectiveCut = BigInt.fromI32(indexer.queryFeeCut)
+      .times(activeIndexerStake.plus(indexer.delegatedTokens))
+      .div(MILLION)
+      .minus(activeIndexerStake)
+      .times(MILLION)
+      .div(indexer.delegatedTokens)
+    indexer.indexingRewardEffectiveCut = BigInt.fromI32(indexer.indexingRewardCut)
+      .times(activeIndexerStake.plus(indexer.delegatedTokens))
+      .div(MILLION)
+      .minus(activeIndexerStake)
+      .times(MILLION)
+      .div(indexer.delegatedTokens)
+  }
   indexer.indexerRewardsOwnGenerationRatio = calculateIndexerRewardOwnGenerationRatio(
     indexer as Indexer,
   )
   indexer.overDelegationDilution = calculateOverdelegationDilution(indexer as Indexer)
+  indexer.totalTokensPool = activeIndexerStake.plus(indexer.delegatedTokens)
+  indexer.notAllocatedTokens = indexer.totalTokensPool.minus(indexer.allocatedTokens)
+  indexer.indexerQueryFees = indexer.queryFeesCollected.minus(indexer.delegatorQueryFees)
+  let graphNetwork = GraphNetwork.load('1')
+  indexer.delegationRemaining = BigInt.fromI32(graphNetwork.delegationRatio)
+    .times(activeIndexerStake)
+    .minus(indexer.delegatedTokens)
+  createRewardsCutHistoryEntity(indexer, event)
+  createDelegationPoolHistoryEntity(indexer, event)
   return indexer as Indexer
+}
+
+export function updateDeploymentSignaledTokens(subgraph: Subgraph): void {
+  let subgraphVersion = SubgraphVersion.load(subgraph.currentVersion)
+  let subgraphDeployment = SubgraphDeployment.load(subgraphVersion.subgraphDeployment)
+  subgraphDeployment.signaledReal = subgraph.signalledTokens.minus(subgraph.unsignalledTokens)
+  subgraphDeployment.save()
+}
+
+function createDelegationPoolHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
+  let id = indexer.id + event.block.number.toString()
+  let poolHistory = DelegationPoolHistoryEntity.load(id)
+  if (poolHistory == null) {
+    poolHistory = new DelegationPoolHistoryEntity(id)
+  }
+  let graphNetwork = GraphNetwork.load('1')
+  poolHistory.indexer = indexer.id
+  poolHistory.stakedTokens = indexer.stakedTokens.minus(indexer.lockedTokens)
+  poolHistory.delegatedTokens = indexer.delegatedTokens
+  poolHistory.blockNumber = event.block.number.toI32()
+  poolHistory.timestamp = event.block.timestamp.toI32()
+  poolHistory.epoch = graphNetwork.currentEpoch
+  poolHistory.save()
+}
+
+function createRewardsCutHistoryEntity(indexer: Indexer, event: ethereum.Event): void {
+  if (indexer.queryFeeEffectiveCut || indexer.indexingRewardEffectiveCut) {
+    let id = indexer.id + event.block.number.toString()
+    let cutHistory = RewardCutHistoryEntity.load(id)
+    if (cutHistory == null) {
+      cutHistory = new RewardCutHistoryEntity(id)
+    }
+    let graphNetwork = GraphNetwork.load('1')
+    cutHistory.indexer = indexer.id
+    cutHistory.indexingRewardCut = indexer.indexingRewardCut
+    cutHistory.queryFeeCut = indexer.queryFeeCut
+    cutHistory.queryFeeEffectiveCut = indexer.queryFeeEffectiveCut
+    cutHistory.indexingRewardEffectiveCut = indexer.indexingRewardEffectiveCut
+    cutHistory.blockNumber = event.block.number.toI32()
+    cutHistory.timestamp = event.block.timestamp.toI32()
+    cutHistory.epoch = graphNetwork.currentEpoch
+    cutHistory.save()
+  }
+}
+
+export function createDelegatorRewardHistoryEntityFromIndexer(
+  indexerId: string,
+  event: ethereum.Event,
+): void {
+  let graphNetwork = GraphNetwork.load('1')
+  let indexer = Indexer.load(indexerId)
+  let delegatorsListStrings = indexer.get('delegatorsList').toBytesArray() as Address[]
+  for (let i = 0; i < delegatorsListStrings.length; i++) {
+    let delegatorStakeid = delegatorsListStrings[i]
+    let delegatedStake = DelegatedStake.load(joinID([delegatorStakeid.toHexString(), indexer.id]))
+    if (delegatedStake) {
+      let id = indexer.id + delegatedStake.delegator + event.block.number.toString()
+      let delegator = Delegator.load(delegatedStake.delegator)
+      // вычитам старое значение текущего стейка
+      delegator.currentStaked = delegator.currentStaked.minus(
+        delegatedStake.currentDelegationAmount,
+      )
+      // вычитаем старое значение неанрелиженных ревардов
+      delegator.unreleasedReward = delegator.unreleasedReward.minus(delegatedStake.unreleasedReward)
+      delegator.totalRewards = delegator.totalRewards.minus(delegatedStake.unreleasedReward)
+
+      let rewardHistoryEntity = DelegatorRewardHistoryEntity.load(id)
+      if (rewardHistoryEntity == null) {
+        rewardHistoryEntity = new DelegatorRewardHistoryEntity(
+          indexer.id + delegatedStake.delegator + event.block.number.toString(),
+        )
+      }
+      rewardHistoryEntity.indexer = indexer.id
+      rewardHistoryEntity.delegator = delegatedStake.delegator
+
+      rewardHistoryEntity.reward = indexer.delegationExchangeRate
+        .minus(delegatedStake.personalExchangeRate)
+        .times(delegatedStake.shareAmount.toBigDecimal())
+      delegatedStake.unreleasedReward = rewardHistoryEntity.reward
+
+      delegatedStake.currentDelegationAmount = delegatedStake.shareAmount
+        .toBigDecimal()
+        .times(indexer.delegationExchangeRate)
+      if (delegatedStake.currentDelegationAmount.gt(BigDecimal.fromString('0'))) {
+        delegatedStake.unreleasedRewardsPercent = delegatedStake.unreleasedReward.div(
+          delegatedStake.currentDelegationAmount,
+        )
+      }
+      delegatedStake.totalRewards = delegatedStake.realizedRewards.plus(
+        delegatedStake.unreleasedReward,
+      )
+      delegatedStake.save()
+      // добавляем новое значение текущего стейка
+      delegator.currentStaked = delegator.currentStaked.plus(delegatedStake.currentDelegationAmount)
+      // добавляем новое значение неанрелиженных ревардов
+      delegator.unreleasedReward = delegator.unreleasedReward.plus(delegatedStake.unreleasedReward)
+      delegator.totalRewards = delegator.totalRealizedRewards.plus(delegator.unreleasedReward)
+      if (!delegator.totalStakedTokens.isZero()) {
+        delegator.unreleasedPercent = delegator.unreleasedReward.div(
+          delegator.totalStakedTokens.toBigDecimal(),
+        )
+      } else {
+        delegator.unreleasedPercent = BigDecimal.fromString('0')
+      }
+      delegator.save()
+      if (rewardHistoryEntity.reward.gt(BigDecimal.fromString('0'))) {
+        // save only non zero rewards
+        rewardHistoryEntity.blockNumber = event.block.number.toI32()
+        rewardHistoryEntity.timestamp = event.block.timestamp.toI32()
+        rewardHistoryEntity.epoch = graphNetwork.currentEpoch
+        rewardHistoryEntity.save()
+      }
+    }
+  }
+}
+
+export function queueDeploymentSignalsUpdate(deployment: SubgraphDeployment): void {
+  // DARK MAGIC ZONE
+  let i = 0
+  // find first non empty slot for queue
+  let loadedEntity = DeploymentSignalsQueue.load(i.toString())
+  while (true) {
+    if (loadedEntity === null) {
+      break
+    }
+    if (loadedEntity.subgraphDeployment === deployment.id) {
+      return
+    }
+    i++
+  }
+  // create queue entity in empty slot with subgraph
+  let queueEntity = new DeploymentSignalsQueue(i.toString())
+  queueEntity.subgraphDeployment = deployment.id
+  queueEntity.save()
+}
+
+export function updateAdvancedNSignalMetrics(subgraph: Subgraph): void {
+  // iterate over all subgraph curators
+  let curatorsListStrings = subgraph.get('curatorsList').toBytesArray() as Address[]
+  let gnsAddr = GraphNetwork.load('1').gns as Address
+  let GNScontract = GNS.bind(gnsAddr)
+  let splitted = subgraph.id.split('-')
+  let subgraphAddress = splitted[0]
+  let subgraphNumberStr = splitted[1]
+  let subgraphNumber: BigInt = BigInt.fromI32(parseInt(subgraphNumberStr, 10) as i32)
+  for (let i = 0; i < curatorsListStrings.length; i++) {
+    let curatorId = curatorsListStrings[i].toHexString()
+    let nSignal = NameSignal.load(joinID([curatorId, subgraph.id]))
+    let curator = Curator.load(curatorId)
+    curator.allCurrentGRTValue = curator.allCurrentGRTValue.minus(nSignal.currentGRTValue)
+    if (nSignal.nameSignal.isZero()) {
+      nSignal.currentGRTValue = BigInt.fromI32(0)
+    } else {
+      let call = GNScontract.try_nSignalToTokens(
+        Address.fromString(subgraphAddress),
+        subgraphNumber,
+        nSignal.nameSignal,
+      )
+      nSignal.currentGRTValue = call.reverted ? BigInt.fromI32(0) : call.value.value1
+    }
+    curator.allCurrentGRTValue = curator.allCurrentGRTValue.plus(nSignal.currentGRTValue)
+
+    curator.unrealizedPLGrt = curator.unrealizedPLGrt.minus(nSignal.unrealizedPLGrt)
+    nSignal.unrealizedPLGrt = nSignal.currentGRTValue
+      .toBigDecimal()
+      .minus(nSignal.nameSignal.toBigDecimal().times(nSignal.lastBuyInPrice))
+    curator.unrealizedPLGrt = curator.unrealizedPLGrt.plus(nSignal.unrealizedPLGrt)
+
+    curator.PLGrt = curator.PLGrt.minus(nSignal.PLGrt)
+    nSignal.PLGrt = nSignal.unsignalledTokens
+      .minus(nSignal.signalledTokens)
+      .plus(nSignal.currentGRTValue)
+      .toBigDecimal()
+    // OR
+    // nSignal.PLGrt = nSignal.unrealizedPLGrt.plus(nSignal.realizedPLGrt)
+    curator.PLGrt = curator.PLGrt.plus(nSignal.PLGrt)
+
+    nSignal.save()
+    curator.save()
+  }
+}
+
+export function updateAdvancedSignalMetrics(subgraphDeployment: SubgraphDeployment): void {
+  // iterate over all deployment curators
+  let curatorsListStrings = subgraphDeployment.get('curatorsList').toBytesArray() as Address[]
+  let curationAddr = GraphNetwork.load('1').curation as Address
+  let CurationContract = Curation.bind(curationAddr)
+  for (let i = 0; i < curatorsListStrings.length; i++) {
+    let curatorId = curatorsListStrings[i].toHexString()
+    let signal = Signal.load(joinID([curatorId, subgraphDeployment.id]))
+    let curator = Curator.load(curatorId)
+    curator.allCurrentGRTValue = curator.allCurrentGRTValue.minus(signal.currentGRTValue)
+    if (signal.signal.isZero()) {
+      signal.currentGRTValue = BigInt.fromI32(0)
+    } else {
+      let call = CurationContract.try_signalToTokens(
+        Bytes.fromHexString(subgraphDeployment.id) as Bytes,
+        signal.signal,
+      )
+      signal.currentGRTValue = call.reverted ? BigInt.fromI32(0) : call.value
+    }
+    curator.allCurrentGRTValue = curator.allCurrentGRTValue.plus(signal.currentGRTValue)
+
+    curator.unrealizedPLGrt = curator.unrealizedPLGrt.minus(signal.unrealizedPLGrt)
+    signal.unrealizedPLGrt = signal.currentGRTValue
+      .toBigDecimal()
+      .minus(signal.signal.toBigDecimal().times(signal.lastBuyInPrice))
+    curator.unrealizedPLGrt = curator.unrealizedPLGrt.plus(signal.unrealizedPLGrt)
+
+    curator.PLGrt = curator.PLGrt.minus(signal.PLGrt)
+    signal.PLGrt = signal.unsignalledTokens
+      .minus(signal.signalledTokens)
+      .plus(signal.currentGRTValue)
+      .toBigDecimal()
+    // OR
+    // nSignal.PLGrt = nSignal.unrealizedPLGrt.plus(nSignal.realizedPLGrt)
+    curator.PLGrt = curator.PLGrt.plus(signal.PLGrt)
+
+    signal.save()
+    curator.save()
+  }
 }

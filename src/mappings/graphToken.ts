@@ -45,15 +45,15 @@ export function handleTransfer(event: Transfer): void {
     userFrom.balance = userFrom.balance.minus(value)
   }
 
-  // decrease approval , if it was a transferFrom from one of the core contracts
-  let graphToken = GraphToken.bind(event.address)
-  if (to == staking) {
-    userFrom.stakingApproval = graphToken.allowance(event.params.from, event.params.to)
-  } else if (to == curation) {
-    userFrom.curationApproval = graphToken.allowance(event.params.from, event.params.to)
-  } else if (to == gns) {
-    userFrom.gnsApproval = graphToken.allowance(event.params.from, event.params.to)
-  }
+  // // decrease approval , if it was a transferFrom from one of the core contracts
+  // let graphToken = GraphToken.bind(event.address)
+  // if (to == staking) {
+  //   userFrom.stakingApproval = graphToken.allowance(event.params.from, event.params.to)
+  // } else if (to == curation) {
+  //   userFrom.curationApproval = graphToken.allowance(event.params.from, event.params.to)
+  // } else if (to == gns) {
+  //   userFrom.gnsApproval = graphToken.allowance(event.params.from, event.params.to)
+  // }
 
   userTo.save()
   userFrom.save()

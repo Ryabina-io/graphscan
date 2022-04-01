@@ -1,4 +1,13 @@
-import { BigDecimal, BigInt, Bytes, ipfs, json } from '@graphprotocol/graph-ts'
+import {
+  BigDecimal,
+  BigInt,
+  ethereum,
+  Bytes,
+  ipfs,
+  json,
+  store,
+  Address,
+} from '@graphprotocol/graph-ts'
 import {
   SubgraphPublished,
   SubgraphDeprecated,
@@ -10,6 +19,8 @@ import {
   GRTWithdrawn,
   SubgraphMetadataUpdated,
   SetDefaultName,
+  ParameterUpdated,
+  GNS,
 } from '../types/GNS/GNS'
 
 import {
@@ -18,8 +29,12 @@ import {
   NameSignalTransaction,
   Curator,
   Indexer,
+  GraphNetwork,
   GraphAccountName,
   SubgraphDeployment,
+  Delegator,
+  GraphAccount,
+  DeploymentSignalsQueue,
 } from '../types/schema'
 
 import { jsonToString, zeroBD } from './utils'
@@ -32,6 +47,9 @@ import {
   createOrLoadSubgraph,
   joinID,
   createOrLoadNameSignal,
+  updateDeploymentSignaledTokens,
+  updateAdvancedNSignalMetrics,
+  updateAdvancedSignalMetrics,
 } from './helpers'
 
 export function handleSetDefaultName(event: SetDefaultName): void {
@@ -63,13 +81,56 @@ export function handleSetDefaultName(event: SetDefaultName): void {
 
     // And if the GraphAccount changes default name, we should change it on the indexer too.
     // Indexer also has a defaultDisplayName because it helps with filtering.
-    let indexer = Indexer.load(event.params.graphAccount.toHexString())
+    let userAddress = event.params.graphAccount.toHexString()
+
+    let indexer = Indexer.load(userAddress)
     if (indexer != null) {
       indexer.defaultDisplayName = graphAccount.defaultDisplayName
       indexer.save()
     }
+
+    let curator = Curator.load(userAddress)
+    if (curator != null) {
+      curator.defaultDisplayName = graphAccount.defaultDisplayName
+      curator.save()
+    }
+
+    let delegator = Delegator.load(userAddress)
+    if (delegator != null) {
+      delegator.defaultDisplayName = graphAccount.defaultDisplayName
+      delegator.save()
+    }
+    addDefaultNameTokenLockWallets(graphAccount, graphAccount.defaultDisplayName)
   }
   graphAccount.save()
+}
+
+// Add in default names to a graph accounts token lock wallets
+function addDefaultNameTokenLockWallets(graphAccount: GraphAccount, name: string): void {
+  let tlws = graphAccount.tokenLockWallets
+  for (let i = 0; i < tlws.length; i++) {
+    let tlw = GraphAccount.load(tlws[i])
+    tlw.defaultDisplayName = name
+    tlw.save()
+
+    let indexer = Indexer.load(tlw.id)
+    if (indexer != null) {
+      indexer.defaultDisplayName = tlw.defaultDisplayName
+      indexer.save()
+    }
+
+    let curator = Curator.load(tlw.id)
+    if (curator != null) {
+      curator.defaultDisplayName = graphAccount.defaultDisplayName
+      curator.save()
+    }
+
+    let delegator = Delegator.load(tlw.id)
+    if (delegator != null) {
+      delegator.defaultDisplayName = graphAccount.defaultDisplayName
+      delegator.save()
+    }
+  }
 }
 
 export function handleSubgraphMetadataUpdated(event: SubgraphMetadataUpdated): void {
@@ -82,12 +143,14 @@ export function handleSubgraphMetadataUpdated(event: SubgraphMetadataUpdated): v
   let base58Hash = hexHash.toBase58()
   let metadata = ipfs.cat(base58Hash)
   subgraph.metadataHash = event.params.subgraphMetadata
+  let image = ''
   if (metadata !== null) {
     let tryData = json.try_fromBytes(metadata as Bytes)
     if (tryData.isOk) {
       let data = tryData.value.toObject()
       subgraph.description = jsonToString(data.get('description'))
-      subgraph.image = jsonToString(data.get('image'))
+      image = jsonToString(data.get('image'))
+      subgraph.image = image
       subgraph.displayName = jsonToString(data.get('displayName'))
       subgraph.codeRepository = jsonToString(data.get('codeRepository'))
       subgraph.website = jsonToString(data.get('website'))
@@ -112,6 +175,9 @@ export function handleSubgraphMetadataUpdated(event: SubgraphMetadataUpdated): v
     subgraphDeployment.originalName = subgraph.displayName
     subgraphDeployment.save()
   }
+  subgraphDeployment.subgraphImg = image
+  subgraphDeployment.subgraphId = event.params.subgraphNumber
+  subgraphDeployment.save()
 }
 
 /**
@@ -174,6 +240,24 @@ export function handleSubgraphPublished(event: SubgraphPublished): void {
     }
   }
   subgraphVersion.save()
+  let subgraphDeployment = SubgraphDeployment.load(subgraphVersion.subgraphDeployment)
+  // Not super robust, someone could deploy blank, then point a subgraph to here
+  // It is more appropriate to say this is the first name 'claimed' for the deployment
+  if (subgraphDeployment.originalName == null) {
+    subgraphDeployment.originalName = subgraph.displayName
+    subgraphDeployment.save()
+  }
+  subgraphDeployment.subgraphImg = subgraph.image
+  subgraphDeployment.subgraphId = event.params.subgraphNumber
+
+  // Adding subgraph to subgraphList of deployment
+  let deploymentSubgraphAccountsList = subgraphDeployment.subgraphAccountsList
+  deploymentSubgraphAccountsList.push(Bytes.fromHexString(graphAccountID) as Bytes)
+  subgraphDeployment.subgraphAccountsList = deploymentSubgraphAccountsList
+  let deploymentSubgraphNumbersList = subgraphDeployment.subgraphNumbersList
+  deploymentSubgraphNumbersList.push(event.params.subgraphNumber.toI32())
+  subgraphDeployment.subgraphNumbersList = deploymentSubgraphNumbersList
+  subgraphDeployment.save()
 }
 /**
  * @dev handleSubgraphDeprecated
@@ -211,16 +295,27 @@ export function handleNSignalMinted(event: NSignalMinted): void {
   let subgraphNumber = event.params.subgraphNumber.toString()
   let subgraphID = joinID([graphAccount, subgraphNumber])
   let subgraph = Subgraph.load(subgraphID)
-
+  let curator = createOrLoadCurator(event.params.nameCurator.toHexString(), event.block.timestamp)
   subgraph.nameSignalAmount = subgraph.nameSignalAmount.plus(event.params.nSignalCreated)
   subgraph.signalledTokens = subgraph.signalledTokens.plus(event.params.tokensDeposited)
-  subgraph.save()
-
+  updateDeploymentSignaledTokens(subgraph as Subgraph)
   let nameSignal = createOrLoadNameSignal(
     event.params.nameCurator.toHexString(),
     subgraphID,
     event.block.timestamp,
   )
+  subgraph = Subgraph.load(subgraphID)
+  if (nameSignal.nameSignal.isZero()) {
+    curator.nameSignalsCount = curator.nameSignalsCount + 1
+    subgraph.nameSignalsCount = subgraph.nameSignalsCount + 1
+  }
+  subgraph.save()
+  // update lastBuyInPrice
+  nameSignal.lastBuyInPrice = nameSignal.lastBuyInPrice
+    .times(nameSignal.nameSignal.toBigDecimal())
+    .plus(event.params.tokensDeposited.toBigDecimal())
+    .div(nameSignal.nameSignal.toBigDecimal().plus(event.params.nSignalCreated.toBigDecimal()))
+  // update lastBuyInPrice
   nameSignal.nameSignal = nameSignal.nameSignal.plus(event.params.nSignalCreated)
   nameSignal.signalledTokens = nameSignal.signalledTokens.plus(event.params.tokensDeposited)
   nameSignal.lastNameSignalChange = event.block.timestamp.toI32()
@@ -237,7 +332,6 @@ export function handleNSignalMinted(event: NSignalMinted): void {
   nameSignal.save()
 
   // Update the curator
-  let curator = createOrLoadCurator(event.params.nameCurator.toHexString(), event.block.timestamp)
   curator.totalNameSignalledTokens = curator.totalNameSignalledTokens.plus(
     event.params.tokensDeposited,
   )
@@ -252,6 +346,7 @@ export function handleNSignalMinted(event: NSignalMinted): void {
       curator.totalNameSignal,
     )
   }
+  curator.lastSignaledAt = event.block.timestamp.toI32()
   curator.save()
 
   // Create n signal tx
@@ -277,7 +372,7 @@ export function handleNSignalBurned(event: NSignalBurned): void {
 
   subgraph.nameSignalAmount = subgraph.nameSignalAmount.minus(event.params.nSignalBurnt)
   subgraph.unsignalledTokens = subgraph.unsignalledTokens.plus(event.params.tokensReceived)
-  subgraph.save()
+  updateDeploymentSignaledTokens(subgraph as Subgraph)
 
   // update name signal
   let nameSignal = createOrLoadNameSignal(
@@ -285,11 +380,31 @@ export function handleNSignalBurned(event: NSignalBurned): void {
     subgraphID,
     event.block.timestamp,
   )
+  let curator = createOrLoadCurator(event.params.nameCurator.toHexString(), event.block.timestamp)
 
+  // calculate releasedP/L
+  curator.realizedPLGrt = curator.realizedPLGrt.minus(nameSignal.realizedPLGrt)
+  nameSignal.realizedPLGrt = event.params.nSignalBurnt
+    .toBigDecimal()
+    .times(
+      event.params.tokensReceived
+        .toBigDecimal()
+        .div(event.params.nSignalBurnt.toBigDecimal())
+        .minus(nameSignal.lastBuyInPrice),
+    )
+
+  curator.realizedPLGrt = curator.realizedPLGrt.plus(nameSignal.realizedPLGrt)
+  // calculate releasedP/L
   nameSignal.nameSignal = nameSignal.nameSignal.minus(event.params.nSignalBurnt)
   nameSignal.unsignalledTokens = nameSignal.unsignalledTokens.plus(event.params.tokensReceived)
   nameSignal.lastNameSignalChange = event.block.timestamp.toI32()
 
+  subgraph = Subgraph.load(subgraphID)
+  if (nameSignal.nameSignal.isZero()) {
+    curator.nameSignalsCount = curator.nameSignalsCount - 1
+    subgraph.nameSignalsCount = subgraph.nameSignalsCount - 1
+  }
+  subgraph.save()
   // update acb to reflect new name signal balance
   let previousACB = nameSignal.averageCostBasis
   nameSignal.averageCostBasis = nameSignal.nameSignal
@@ -302,7 +417,6 @@ export function handleNSignalBurned(event: NSignalBurned): void {
   nameSignal.save()
 
   // update curator
-  let curator = createOrLoadCurator(event.params.nameCurator.toHexString(), event.block.timestamp)
   curator.totalNameUnsignalledTokens = curator.totalNameUnsignalledTokens.plus(
     event.params.tokensReceived,
   )
@@ -315,6 +429,7 @@ export function handleNSignalBurned(event: NSignalBurned): void {
       curator.totalNameSignal,
     )
   }
+  curator.lastUnsignaledAt = event.block.timestamp.toI32()
   curator.save()
 
   // Create n signal tx
@@ -344,6 +459,7 @@ export function handleNameSignalUpgrade(event: NameSignalUpgrade): void {
   subgraph.unsignalledTokens = subgraph.unsignalledTokens.plus(event.params.tokensSignalled)
   subgraph.signalledTokens = subgraph.signalledTokens.plus(event.params.tokensSignalled)
   subgraph.save()
+  updateDeploymentSignaledTokens(subgraph as Subgraph)
 }
 
 // Only need to upgrade withdrawable tokens. Everything else handled from
@@ -378,6 +494,56 @@ export function handleGRTWithdrawn(event: GRTWithdrawn): void {
   nameSignal.save()
 
   let curator = Curator.load(event.params.nameCurator.toHexString())
+  if (nameSignal.nameSignal.isZero()) {
+    curator.nameSignalsCount = curator.nameSignalsCount - 1
+    subgraph.nameSignalsCount = subgraph.nameSignalsCount - 1
+  }
   curator.totalWithdrawnTokens = curator.totalWithdrawnTokens.plus(event.params.withdrawnGRT)
   curator.save()
+}
+
+export function handleBlock(block: ethereum.Block): void {
+  if (block.number.le(BigInt.fromI32(13726000))) {
+    // skip signals history until 13726000 block
+    return
+  }
+  // DARK MAGIC ZONE
+  let queueEntityDeployment: DeploymentSignalsQueue | null
+  let i = 0
+  while ((queueEntityDeployment = DeploymentSignalsQueue.load(i.toString())) != null) {
+    let deployment = SubgraphDeployment.load(
+      queueEntityDeployment.subgraphDeployment,
+    ) as SubgraphDeployment
+    // update direct signals
+    updateAdvancedSignalMetrics(deployment)
+    // loop over all subgraphs linked to this deployment and procced them
+
+    let subgraphAccountsList = deployment.get('subgraphAccountsList').toBytesArray() as Address[]
+    let subgraphNumbersList = deployment.subgraphNumbersList
+    for (let i = 0; i < subgraphAccountsList.length; i++) {
+      let subgraphId = joinID([
+        subgraphAccountsList[i].toHexString(),
+        BigInt.fromI32(subgraphNumbersList[i]).toString(),
+      ])
+      updateAdvancedNSignalMetrics(Subgraph.load(subgraphId) as Subgraph)
+    }
+    store.remove('DeploymentSignalsQueue', i.toString())
+    i++
+  }
+}
+
+/**
+ * @dev handleParamterUpdated
+ * - updates all parameters of GNS, depending on string passed. We then can
+ *   call the contract directly to get the updated value
+ */
+export function handleParameterUpdated(event: ParameterUpdated): void {
+  let parameter = event.params.param
+  let graphNetwork = GraphNetwork.load('1')
+  let gns = GNS.bind(event.address)
+
+  if (parameter == 'ownerTaxPercentage') {
+    graphNetwork.ownerTaxPercentage = gns.ownerTaxPercentage().toI32()
+  }
+  graphNetwork.save()
 }

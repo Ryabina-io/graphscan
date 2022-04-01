@@ -20,6 +20,7 @@ import {
   createOrLoadCurator,
   createOrLoadEpoch,
   joinID,
+  queueDeploymentSignalsUpdate,
 } from './helpers'
 
 /**
@@ -32,19 +33,36 @@ export function handleSignalled(event: Signalled): void {
   // Update curator
   let id = event.params.curator.toHexString()
   let curator = createOrLoadCurator(id, event.block.timestamp)
-  curator.totalSignalledTokens = curator.totalSignalledTokens.plus(event.params.tokens)
-  curator.save()
+  curator.totalSignalledTokens = curator.totalSignalledTokens.plus(
+    event.params.tokens.minus(event.params.curationTax),
+  )
 
   // Update signal
   let subgraphDeploymentID = event.params.subgraphDeploymentID.toHexString()
+  let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
   let signal = createOrLoadSignal(id, subgraphDeploymentID)
-  signal.signalledTokens = signal.signalledTokens.plus(event.params.tokens)
+  deployment = SubgraphDeployment.load(subgraphDeploymentID) as SubgraphDeployment
+  if (signal.signal.isZero()) {
+    curator.signalsCount = curator.signalsCount + 1
+    deployment.signalsCount = deployment.signalsCount + 1
+  }
+  // update lastBuyInPrice
+  signal.lastBuyInPrice = signal.lastBuyInPrice
+    .times(signal.signal.toBigDecimal())
+    .plus(event.params.tokens.toBigDecimal())
+    .div(signal.signal.toBigDecimal().plus(event.params.signal.toBigDecimal()))
+  // update lastBuyInPrice
+  curator.save()
+  signal.signalledTokens = signal.signalledTokens.plus(
+    event.params.tokens.minus(event.params.curationTax),
+  )
   signal.signal = signal.signal.plus(event.params.signal)
   signal.save()
 
   // Update subgraph deployment
-  let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
-  deployment.signalledTokens = deployment.signalledTokens.plus(event.params.tokens)
+  deployment.signalledTokens = deployment.signalledTokens.plus(
+    event.params.tokens.minus(event.params.curationTax),
+  )
   deployment.signalAmount = deployment.signalAmount.plus(event.params.signal)
 
   let curation = Curation.bind(event.address)
@@ -53,12 +71,16 @@ export function handleSignalled(event: Signalled): void {
 
   // Update epoch
   let epoch = createOrLoadEpoch(event.block.number)
-  epoch.signalledTokens = epoch.signalledTokens.plus(event.params.tokens)
+  epoch.signalledTokens = epoch.signalledTokens.plus(
+    event.params.tokens.minus(event.params.curationTax),
+  )
   epoch.save()
 
   // Update graph network
   let graphNetwork = GraphNetwork.load('1')
-  graphNetwork.totalTokensSignalled = graphNetwork.totalTokensSignalled.plus(event.params.tokens)
+  graphNetwork.totalTokensSignalled = graphNetwork.totalTokensSignalled.plus(
+    event.params.tokens.minus(event.params.curationTax),
+  )
   graphNetwork.save()
 
   // Create n signal tx
@@ -70,10 +92,11 @@ export function handleSignalled(event: Signalled): void {
   signalTransaction.signer = event.params.curator.toHexString()
   signalTransaction.type = 'MintSignal'
   signalTransaction.signal = event.params.signal
-  signalTransaction.tokens = event.params.tokens
+  signalTransaction.tokens = event.params.tokens.minus(event.params.curationTax)
   signalTransaction.withdrawalFees = BigInt.fromI32(0)
   signalTransaction.subgraphDeployment = event.params.subgraphDeploymentID.toHexString()
   signalTransaction.save()
+  queueDeploymentSignalsUpdate(deployment as SubgraphDeployment)
 }
 /**
  * @dev handleRedeemed
@@ -101,6 +124,11 @@ export function handleBurned(event: Burned): void {
   let deployment = SubgraphDeployment.load(subgraphDeploymentID)
   deployment.signalledTokens = deployment.signalledTokens.minus(event.params.tokens)
   deployment.signalAmount = deployment.signalAmount.minus(event.params.signal)
+  if (signal.signal.isZero()) {
+    curator.signalsCount = curator.signalsCount - 1
+    deployment.signalsCount = deployment.signalsCount - 1
+  }
+  curator.save()
   deployment.save()
 
   // Update epoch - none
@@ -123,6 +151,7 @@ export function handleBurned(event: Burned): void {
   signalTransaction.withdrawalFees = BigInt.fromI32(0)
   signalTransaction.subgraphDeployment = event.params.subgraphDeploymentID.toHexString()
   signalTransaction.save()
+  queueDeploymentSignalsUpdate(deployment as SubgraphDeployment)
 }
 
 /**

@@ -39,6 +39,8 @@ import {
   createOrLoadDelegatedStake,
   createOrLoadGraphAccount,
   updateAdvancedIndexerMetrics,
+  createDelegatorRewardHistoryEntityFromIndexer,
+  createOrLoadIntexerDeployment,
 } from './helpers'
 
 export function handleDelegationParametersUpdated(event: DelegationParametersUpdated): void {
@@ -51,7 +53,7 @@ export function handleDelegationParametersUpdated(event: DelegationParametersUpd
     indexer.queryFeeCut = event.params.queryFeeCut.toI32()
     indexer.delegatorParameterCooldown = event.params.cooldownBlocks.toI32()
     indexer.lastDelegationParameterUpdate = event.block.number.toI32()
-    indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+    indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
     indexer.save()
   }
 }
@@ -68,10 +70,9 @@ export function handleStakeDeposited(event: StakeDeposited): void {
   let indexer = createOrLoadIndexer(id, event.block.timestamp)
   let previousStake = indexer.stakedTokens
   indexer.stakedTokens = indexer.stakedTokens.plus(event.params.tokens)
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
-
   // Update graph network
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalTokensStaked = graphNetwork.totalTokensStaked.plus(event.params.tokens)
@@ -98,7 +99,7 @@ export function handleStakeLocked(event: StakeLocked): void {
   let indexer = Indexer.load(id)
   indexer.lockedTokens = event.params.tokens
   indexer.tokensLockedUntil = event.params.until.toI32()
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
@@ -122,10 +123,9 @@ export function handleStakeWithdrawn(event: StakeWithdrawn): void {
   indexer.stakedTokens = indexer.stakedTokens.minus(event.params.tokens)
   indexer.lockedTokens = indexer.lockedTokens.minus(event.params.tokens)
   indexer.tokensLockedUntil = 0 // always set to 0 when withdrawn
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
-
   // Update graph network
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalTokensStaked = graphNetwork.totalTokensStaked.minus(event.params.tokens)
@@ -155,7 +155,7 @@ export function handleStakeSlashed(event: StakeSlashed): void {
   let staking = Staking.bind(event.address)
   let indexerStored = staking.stakes(event.params.indexer)
   indexer.lockedTokens = indexerStored.value2
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
@@ -177,7 +177,7 @@ export function handleStakeDelegated(event: StakeDelegated): void {
       .toBigDecimal()
       .div(indexer.delegatorShares.toBigDecimal())
   }
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
@@ -185,14 +185,19 @@ export function handleStakeDelegated(event: StakeDelegated): void {
   let delegatorID = event.params.delegator.toHexString()
   let delegator = createOrLoadDelegator(delegatorID, event.block.timestamp)
   delegator.totalStakedTokens = delegator.totalStakedTokens.plus(event.params.tokens)
+  delegator.lastDelegationAt = event.block.timestamp.toI32()
   delegator.save()
-
   // update delegated stake
   let delegatedStake = createOrLoadDelegatedStake(
     delegatorID,
     indexerID,
     event.block.timestamp.toI32(),
   )
+  if (delegatedStake.stakedTokens.isZero()) {
+    delegator = createOrLoadDelegator(delegatorID, event.block.timestamp)
+    delegator.activeStakesCount = delegator.activeStakesCount + 1
+    delegator.save()
+  }
   if (!zeroShares) {
     let previousExchangeRate = delegatedStake.personalExchangeRate
     let previousShares = delegatedStake.shareAmount
@@ -205,8 +210,11 @@ export function handleStakeDelegated(event: StakeDelegated): void {
         averageCostBasisShares.toBigDecimal(),
       )
     }
+    if (delegatedStake.shareAmount.isZero()) {
+      // обновляем createdAt если делегация от нулевой стала ненулевой
+      delegatedStake.createdAt = event.block.timestamp.toI32()
+    }
   }
-
   delegatedStake.stakedTokens = delegatedStake.stakedTokens.plus(event.params.tokens)
   delegatedStake.shareAmount = delegatedStake.shareAmount.plus(event.params.shares)
   delegatedStake.save()
@@ -215,6 +223,8 @@ export function handleStakeDelegated(event: StakeDelegated): void {
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalDelegatedTokens = graphNetwork.totalDelegatedTokens.plus(event.params.tokens)
   graphNetwork.save()
+
+  createDelegatorRewardHistoryEntityFromIndexer(indexerID, event)
 }
 
 export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
@@ -229,7 +239,7 @@ export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
       .toBigDecimal()
       .div(indexer.delegatorShares.toBigDecimal())
   }
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
@@ -253,12 +263,18 @@ export function handleStakeDelegatedLocked(event: StakeDelegatedLocked): void {
   let delegator = Delegator.load(delegatorID)
   delegator.totalUnstakedTokens = delegator.totalUnstakedTokens.plus(event.params.tokens)
   delegator.totalRealizedRewards = delegator.totalRealizedRewards.plus(realizedRewards)
+  delegator.lastUnDelegationAt = event.block.timestamp.toI32()
+  if (delegatedStake.stakedTokens.isZero()) {
+    delegator.activeStakesCount = delegator.activeStakesCount - 1
+    delegator.save()
+  }
   delegator.save()
 
   // upgrade graph network
   let graphNetwork = GraphNetwork.load('1')
   graphNetwork.totalDelegatedTokens = graphNetwork.totalDelegatedTokens.minus(event.params.tokens)
   graphNetwork.save()
+  createDelegatorRewardHistoryEntityFromIndexer(indexerID, event)
 }
 
 export function handleStakeDelegatedWithdrawn(event: StakeDelegatedWithdrawn): void {
@@ -290,7 +306,7 @@ export function handleAllocationCreated(event: AllocationCreated): void {
   indexer.allocatedTokens = indexer.allocatedTokens.plus(event.params.tokens)
   indexer.totalAllocationCount = indexer.totalAllocationCount.plus(BigInt.fromI32(1))
   indexer.allocationCount = indexer.allocationCount + 1
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
 
@@ -299,9 +315,16 @@ export function handleAllocationCreated(event: AllocationCreated): void {
   graphNetwork.totalTokensAllocated = graphNetwork.totalTokensAllocated.plus(event.params.tokens)
   graphNetwork.save()
 
+  let indexerDeployment = createOrLoadIntexerDeployment(indexerID, subgraphDeploymentID)
+  indexerDeployment.allocations = indexerDeployment.allocations + 1
+  indexerDeployment.save()
   // update subgraph deployment
   let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
   deployment.stakedTokens = deployment.stakedTokens.plus(event.params.tokens)
+  if (indexerDeployment.allocations == 1) {
+    deployment.indexersCount = deployment.indexersCount + 1
+  }
+  deployment.allocationsCount = deployment.allocationsCount + 1
   deployment.save()
 
   // create allocation
@@ -310,6 +333,7 @@ export function handleAllocationCreated(event: AllocationCreated): void {
   allocation.creator = event.transaction.from
   allocation.activeForIndexer = indexerID
   allocation.subgraphDeployment = subgraphDeploymentID
+  allocation.subgraphDeploymentId = subgraphDeploymentID
   allocation.allocatedTokens = event.params.tokens
   allocation.effectiveAllocation = BigInt.fromI32(0)
   allocation.createdAtEpoch = event.params.epoch.toI32()
@@ -323,6 +347,7 @@ export function handleAllocationCreated(event: AllocationCreated): void {
   allocation.indexingDelegatorRewards = BigInt.fromI32(0)
   allocation.delegationFees = BigInt.fromI32(0)
   allocation.status = 'Active'
+  allocation.statusInt = 0
   allocation.totalReturn = BigDecimal.fromString('0')
   allocation.annualizedReturn = BigDecimal.fromString('0')
   allocation.createdAt = event.block.timestamp.toI32()
@@ -416,12 +441,19 @@ export function handleAllocationClosed(event: AllocationClosed): void {
   }
   indexer.allocatedTokens = indexer.allocatedTokens.minus(event.params.tokens)
   indexer.allocationCount = indexer.allocationCount - 1
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  let allocation = Allocation.load(allocationID)
+  // saving old cuts values
+  allocation.indexingRewardCut = indexer.indexingRewardCut
+  allocation.indexingRewardEffectiveCut = indexer.indexingRewardEffectiveCut
+  allocation.queryFeeCut = indexer.queryFeeCut
+  allocation.queryFeeEffectiveCut = indexer.queryFeeEffectiveCut
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer = calculateCapacities(indexer as Indexer)
   indexer.save()
-
+  let indexerDeployment = createOrLoadIntexerDeployment(indexerID, allocation.subgraphDeployment)
+  indexerDeployment.allocations = indexerDeployment.allocations - 1
+  indexerDeployment.save()
   // update allocation
-  let allocation = Allocation.load(allocationID)
   allocation.poolClosedIn = event.params.epoch.toString()
   allocation.activeForIndexer = null
   allocation.closedAt = event.block.timestamp.toI32()
@@ -430,7 +462,9 @@ export function handleAllocationClosed(event: AllocationClosed): void {
   allocation.closedAtBlockNumber = event.block.number.toI32()
   allocation.effectiveAllocation = event.params.effectiveAllocation
   allocation.status = 'Closed'
+  allocation.statusInt = 1
   allocation.poi = event.params.poi
+  allocation.totalDelegatedTokensOnClose = indexer.delegatedTokens
   allocation.save()
 
   // update epoch - We do it here to have more epochs created, instead of seeing none created
@@ -454,6 +488,9 @@ export function handleAllocationClosed(event: AllocationClosed): void {
   // it would be done in handleRebateClaimed
   let subgraphDeploymentID = event.params.subgraphDeploymentID.toHexString()
   let deployment = createOrLoadSubgraphDeployment(subgraphDeploymentID, event.block.timestamp)
+  if (indexerDeployment.allocations == 0) {
+    deployment.indexersCount = deployment.indexersCount - 1
+  }
   deployment.stakedTokens = deployment.stakedTokens.minus(event.params.tokens)
   deployment.save()
 
@@ -487,13 +524,15 @@ export function handleRebateClaimed(event: RebateClaimed): void {
       .toBigDecimal()
       .div(indexer.delegatorShares.toBigDecimal())
   }
-  indexer = updateAdvancedIndexerMetrics(indexer as Indexer)
+  indexer = updateAdvancedIndexerMetrics(indexer as Indexer, event)
   indexer.save()
+
   // update allocation
   let allocation = Allocation.load(allocationID)
   allocation.queryFeeRebates = event.params.tokens
   allocation.delegationFees = event.params.delegationFees
   allocation.status = 'Claimed'
+  allocation.statusInt = 2
   allocation.save()
 
   // Update epoch
@@ -523,6 +562,7 @@ export function handleRebateClaimed(event: RebateClaimed): void {
     event.params.delegationFees.plus(event.params.tokens),
   )
   graphNetwork.save()
+  createDelegatorRewardHistoryEntityFromIndexer(indexerID, event)
 }
 
 /**
